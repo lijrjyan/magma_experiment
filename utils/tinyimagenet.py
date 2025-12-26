@@ -1,4 +1,7 @@
 import os
+import urllib.request
+import zipfile
+
 import torch
 from torch.utils.data import Dataset
 from torchvision import transforms
@@ -40,14 +43,35 @@ class TinyImageNet(Dataset):
             return
         
         os.makedirs(self.root, exist_ok=True)
-        print('Downloading TinyImageNet dataset...')
-        print('Please download the dataset manually from http://cs231n.stanford.edu/tiny-imagenet-200.zip')
-        print('Extract it to {}'.format(self.root))
-        print('The directory structure should be:')
-        print('  {}/tiny-imagenet-200/'.format(self.root))
-        print('  {}/tiny-imagenet-200/train/'.format(self.root))
-        print('  {}/tiny-imagenet-200/val/'.format(self.root))
-        print('  {}/tiny-imagenet-200/test/'.format(self.root))
+        url = os.environ.get(
+            "TINYIMAGENET_URL", "http://cs231n.stanford.edu/tiny-imagenet-200.zip"
+        )
+        archive_path = os.path.join(self.root, "tiny-imagenet-200.zip")
+        tmp_path = archive_path + ".part"
+
+        if not os.path.exists(archive_path):
+            print(f"Downloading TinyImageNet dataset from {url} ...")
+            try:
+                urllib.request.urlretrieve(url, tmp_path)
+                os.replace(tmp_path, archive_path)
+            finally:
+                if os.path.exists(tmp_path):
+                    try:
+                        os.remove(tmp_path)
+                    except OSError:
+                        pass
+
+        if not self._check_exists():
+            print(f"Extracting {archive_path} ...")
+            with zipfile.ZipFile(archive_path, "r") as zip_handle:
+                zip_handle.extractall(self.root)
+
+        if not self._check_exists():
+            raise RuntimeError(
+                "TinyImageNet download/extract failed. "
+                "You can download manually from http://cs231n.stanford.edu/tiny-imagenet-200.zip "
+                f"and extract it under {self.root}/tiny-imagenet-200/."
+            )
     
     def _load_train_data(self):
         data = []

@@ -251,6 +251,7 @@ def get_dataset(
     use_fake_data: bool = False,
     fake_train_size: int = 2000,
     fake_test_size: int = 500,
+    allow_fallback: bool = True,
 ):
     """Get train/test datasets for a dataset name.
 
@@ -286,6 +287,8 @@ def get_dataset(
             return load_data_tinyimagenet(dataset_root)
         raise ValueError(f"Dataset {dataset_name} not supported")
     except Exception as exc:
+        if not allow_fallback:
+            raise
         logger.warning(
             "Failed to load dataset=%s from %s (%s). Falling back to RandomShardDataset.",
             dataset_name,
@@ -782,6 +785,7 @@ def get_client_data_loader(
     use_fake_data: bool = False,
     fake_train_size: int = 2000,
     fake_test_size: int = 500,
+    strict_data: bool = False,
     client_stats_path: str | None = None,
 ) -> dict:
     """
@@ -797,6 +801,7 @@ def get_client_data_loader(
         use_fake_data=use_fake_data,
         fake_train_size=fake_train_size,
         fake_test_size=fake_test_size,
+        allow_fallback=not strict_data,
     )
 
     if data_balance_strategy == "extreme_imbalance":

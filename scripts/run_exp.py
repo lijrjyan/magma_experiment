@@ -114,6 +114,7 @@ def compose_simulation_config(
         "use_fake_data": bool(data_cfg.get("use_fake_data", False)),
         "fake_train_size": int(data_cfg.get("fake_train_size", 2000)),
         "fake_test_size": int(data_cfg.get("fake_test_size", 500)),
+        "strict_data": bool(data_cfg.get("strict_data", False)),
         "partition_type": partition_cfg.get("type", "iid"),
         "partition_dirichlet_beta": partition_cfg.get("beta", 0.5),
         "regularization": train_cfg.get("regularization", 1e-5),

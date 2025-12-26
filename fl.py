@@ -59,6 +59,7 @@ class SimulationFL(ABC):
         self.use_fake_data = bool(config.get("use_fake_data", False))
         self.fake_train_size = int(config.get("fake_train_size", 2000))
         self.fake_test_size = int(config.get("fake_test_size", 500))
+        self.strict_data = bool(config.get("strict_data", False))
 
         self.training_round = config.get("training_round", 10)
         self.local_epochs = config.get("local_epochs", 1)
@@ -135,6 +136,7 @@ class SimulationFL(ABC):
             use_fake_data=self.use_fake_data,
             fake_train_size=self.fake_train_size,
             fake_test_size=self.fake_test_size,
+            strict_data=self.strict_data,
             client_stats_path=client_stats_path,
         )
         if not self.client_data_loader:
@@ -255,6 +257,16 @@ class SimulationFL(ABC):
         self.init_client_per_round()
         self.init_attackers()  # 初始化攻击者列表
         self.init_data()
+        if self.training_round <= 0:
+            logger.info(
+                "training_round=%s; skipping model initialization and training loop",
+                self.training_round,
+            )
+            logger.info("summarization - simulation metrics: {}".format(self.metrics))
+            if self.tensorboard is not None:
+                self.tensorboard.close()
+            return
+
         self.init_model()
 
         logger.info("start the FL simulation")

@@ -8,6 +8,7 @@ data:
   dataset: cifar10
   dir: ./data
   use_fake_data: false
+  strict_data: false
   fake_train_size: 2000
   fake_test_size: 500
   partition:
@@ -45,4 +46,3 @@ attacks:
 logging:
   tensorboard: true
   keep_magma_metrics: true
-
