@@ -39,6 +39,7 @@ python scripts/run_exp.py --config configs/tinyimagenet.yaml --run-name tinyimag
 
 - 默认 sanity：`python scripts/run_exp.py --config configs/mnist.yaml --run-name mnist_sanity`（记录路径 `results/mnist_sanity/`）。
 - 攻击验证：见 `configs/attacks.yaml`；示例证据 `results/stage3_mnist_fedavg_ipm/`（FedAvg + IPM，单轮攻击导致精度明显下降）。
+- 明文 baselines：见 `configs/aggregators.yaml`；示例证据 `results/stage4_mnist_noattack_fedavg/`、`results/stage4_mnist_scaling_clipmedian/`。
 - MAGMA vs DDFed：Stage 6-9 会在 `results/summary_table.{csv,json}` 和 `docs/dual_defense_comparison.md` 中发布最终精度/FP/FN/time；当前仅有结构说明。
 
 ## 数据说明

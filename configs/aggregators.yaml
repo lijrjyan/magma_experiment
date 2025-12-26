@@ -1,11 +1,47 @@
-# Aggregator configuration catalog (Stage 1 placeholder)
-aggregators:
+# Aggregator presets (Stage 4)
+#
+# This file is a reference library: copy one preset into the `aggregation:`
+# section of a dataset config (e.g. `configs/mnist.yaml`), or use `--override`.
+#
+# Notes:
+# - `aggregation.method` maps to `fl.py`'s `fusion` switch.
+# - All presets here are plaintext baselines (`use_fhe: false`).
+
+aggregator_presets:
   fedavg:
-    module: baselines.fedavg
-    notes: "Plain data-size weighted averaging baseline"
-  dual_defense:
-    module: baselines.ddfed
-    notes: "Two-phase similarity defense (current default)"
-  magma:
-    module: baselines.magma
-    notes: "Placeholder for MAGMA geometric defense"
+    method: fedavg
+    use_fhe: false
+
+  krum:
+    method: krum
+    use_fhe: false
+    # Optional override (defaults to int(attacker_ratio * clients_per_round))
+    krum_max_expected_adversaries: null
+
+  median:
+    method: median
+    use_fhe: false
+
+  trimmed_mean:
+    method: trimmed_mean
+    use_fhe: false
+    trimmed_ratio: 0.1
+
+  clipping_median:
+    method: clipping_median
+    use_fhe: false
+    clipping_threshold: 0.1
+
+  cos_defense:
+    method: cos_defense
+    use_fhe: false
+    cos_similarity_threshold: null
+
+# Default block (for easy copy/paste into dataset configs)
+aggregation:
+  method: fedavg
+  use_fhe: false
+  krum_max_expected_adversaries: null
+  trimmed_ratio: 0.1
+  clipping_threshold: 0.1
+  cos_similarity_threshold: null

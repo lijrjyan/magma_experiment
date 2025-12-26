@@ -172,7 +172,7 @@ git push origin main
 
 **Commit message 建议**：`stage3: implement poisoning attacks (ipm/alie/scaling/label-flip) with unified interfaces`
 
-### Step 4（对应 Stage 4）：明文 baselines（FedAvg / Krum / Median / TrimmedMean / ClipMedian / CosDefense）
+### Step 4（对应 Stage 4）：明文 baselines（FedAvg / Krum / Median / TrimmedMean / ClipMedian / CosDefense） ✅（已完成）
 
 **目标**
 
@@ -186,6 +186,15 @@ git push origin main
 **验收**
 
 - 无攻击时各聚合器精度接近；Scaling attack 下 ClipMedian 曲线稳定。
+- 明文 baseline sanity 证据（MNIST，IID，无攻击）：
+  - `results/stage4_mnist_noattack_fedavg/`
+  - `results/stage4_mnist_noattack_krum/`
+  - `results/stage4_mnist_noattack_median/`
+  - `results/stage4_mnist_noattack_trimmedmean/`
+  - `results/stage4_mnist_noattack_clipmedian/`
+  - `results/stage4_mnist_noattack_cosdefense/`
+- Scaling attack + ClipMedian 证据（MNIST，IID）：
+  - `results/stage4_mnist_scaling_clipmedian/`
 
 **结束必须 push**：`git status && git add -A && git commit -m "stage4: add plaintext baselines (krum/median/trimmed/clipmedian/cosdefense) and validate curves" && git push origin main`
 

@@ -129,22 +129,37 @@ def fusion_median(
 
 
 def fusion_clipping_median(
+    global_model: torch.nn.Module,
     model_updates: Dict[int, torch.nn.Module],
     clipping_threshold=0.1,
     device: torch.device = torch.device("cpu"),
 ) -> Dict[str, Any]:
-    median_params = {}
-    with torch.no_grad():
-        for key in next(iter(model_updates.values())).state_dict():
-            params = torch.stack(
-                [model.state_dict()[key].float() for model in model_updates.values()]
-            )
-            median_params[key] = wrap_torch_median(params, dim=0, device=device)
-            median_params[key] = torch.clamp(
-                median_params[key], -clipping_threshold, clipping_threshold
-            )
+    """Coordinate-wise median followed by clipping on the *update* (delta).
 
-    return median_params
+    The original prototype clamped the aggregated parameters directly, which
+    can destroy a well-initialized model (weights are not bounded to a small
+    interval). Here we compute the median parameters first, then clip the
+    delta relative to the current global model:
+
+        W_new = W_global + clip(median(W_i) - W_global, [-c, c])
+    """
+
+    global_state = global_model.state_dict()
+    median_state = fusion_median(model_updates, device=device)
+
+    clipped_state: Dict[str, Any] = {}
+    with torch.no_grad():
+        for key, global_tensor in global_state.items():
+            median_tensor = median_state[key]
+            if global_tensor.dtype in (torch.long, torch.int64, torch.int32, torch.int16, torch.int8):
+                clipped_state[key] = global_tensor.clone()
+                continue
+
+            delta = median_tensor.float() - global_tensor.float()
+            delta = torch.clamp(delta, -clipping_threshold, clipping_threshold)
+            clipped_state[key] = (global_tensor.float() + delta).to(global_tensor.dtype)
+
+    return clipped_state
 
 
 def fusion_trimmed_mean(

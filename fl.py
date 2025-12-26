@@ -48,6 +48,18 @@ class SimulationFL(ABC):
         self.clients_per_round = config.get("clients_per_round", 10)
         self.dataset = config.get("dataset", "mnist")
         self.fusion = config.get("fusion", "fedavg")
+        self.trimmed_ratio = float(config.get("trimmed_ratio", 0.1))
+        if self.trimmed_ratio < 0 or self.trimmed_ratio >= 0.5:
+            raise ValueError(f"trimmed_ratio must be in [0, 0.5), got {self.trimmed_ratio}")
+        self.clipping_threshold = float(config.get("clipping_threshold", 0.1))
+        if self.clipping_threshold <= 0:
+            raise ValueError(f"clipping_threshold must be > 0, got {self.clipping_threshold}")
+        self.krum_max_expected_adversaries = config.get("krum_max_expected_adversaries")
+        if self.krum_max_expected_adversaries is not None:
+            self.krum_max_expected_adversaries = int(self.krum_max_expected_adversaries)
+        self.cos_similarity_threshold = config.get("cos_similarity_threshold")
+        if self.cos_similarity_threshold is not None:
+            self.cos_similarity_threshold = float(self.cos_similarity_threshold)
         self.partion_type = config.get("partition_type", "noniid")
         self.partion_dirichlet_beta = config.get("partition_dirichlet_beta", 0.25)
         self.dir_data = config.get("data_dir") or config.get("dir_data") or "./data/"
@@ -346,14 +358,15 @@ class SimulationFL(ABC):
             )
             self.metrics[_round_idx]["server"]["test_acc"] = _test_acc
             logger.info(f"global side -  test accuracy: {_test_acc}")
-            self.tensorboard.add_scalar(
-                "{}-{} - Server Test Acc".format(
-                    self.dataset,
-                    self.fusion,
-                ),
-                _test_acc,
-                _round_idx,
-            )
+            if self.tensorboard is not None:
+                self.tensorboard.add_scalar(
+                    "{}-{} - Server Test Acc".format(
+                        self.dataset,
+                        self.fusion,
+                    ),
+                    _test_acc,
+                    _round_idx,
+                )
             
             # 计算每个类别的测试准确率
             per_class_accuracy = self.evaluate_per_class_accuracy(
@@ -365,20 +378,23 @@ class SimulationFL(ABC):
             for class_id, acc in per_class_accuracy.items():
                 logger.info(f"  Class {class_id}: {acc:.2f}%")
                 self.metrics[_round_idx]["server"][f"class_{class_id}_acc"] = acc
-                self.tensorboard.add_scalar(
-                    f"{self.dataset}-{self.fusion} - Class {class_id} Acc",
-                    acc,
-                    _round_idx,
-                )
+                if self.tensorboard is not None:
+                    self.tensorboard.add_scalar(
+                        f"{self.dataset}-{self.fusion} - Class {class_id} Acc",
+                        acc,
+                        _round_idx,
+                    )
             
-            self.tensorboard.flush()
+            if self.tensorboard is not None:
+                self.tensorboard.flush()
 
             time_round_end = time.perf_counter()
             self.metrics[_round_idx]["time"] = time_round_end - time_start
 
         logger.info("end the FL simulation")
         logger.info("summarization - simulation metrics: {}".format(self.metrics))
-        self.tensorboard.close()
+        if self.tensorboard is not None:
+            self.tensorboard.close()
 
     def client_local_train(
         self, round_idx: int, client_id: int, client_model: nn.Module
@@ -673,7 +689,14 @@ class SimulationFL(ABC):
             return weighted_avg_params
         elif self.fusion == "krum":
             # max_expected_adversaries = int(self.attacker_ratio * self.num_clients)
-            max_expected_adversaries = int(self.attacker_ratio * len(model_updates))
+            if self.krum_max_expected_adversaries is None:
+                max_expected_adversaries = int(self.attacker_ratio * len(model_updates))
+            else:
+                max_expected_adversaries = int(self.krum_max_expected_adversaries)
+            max_expected_adversaries = max(
+                0,
+                min(max_expected_adversaries, max(0, len(model_updates) - 2)),
+            )
             krum_params = fusion_krum(
                 model_updates, max_expected_adversaries, self.device
             )
@@ -683,17 +706,27 @@ class SimulationFL(ABC):
             return median_params
         elif self.fusion == "clipping_median":
             median_clipping_params = fusion_clipping_median(
-                model_updates, clipping_threshold=0.1, device=self.device
+                self.server_model,
+                model_updates,
+                clipping_threshold=self.clipping_threshold,
+                device=self.device,
             )
             return median_clipping_params
         elif self.fusion == "trimmed_mean":
             trimmed_mean_params = fusion_trimmed_mean(
-                model_updates, trimmed_ratio=0.1, device=self.device
+                model_updates,
+                trimmed_ratio=self.trimmed_ratio,
+                device=self.device,
             )
             return trimmed_mean_params
         elif self.fusion == "cos_defense":
             # 对于cos_defense，我们也使用伪造的数据大小
-            weighted_params = fusion_cos_defense(self.server_model, model_updates, data_sizes)
+            weighted_params = fusion_cos_defense(
+                self.server_model,
+                model_updates,
+                data_sizes,
+                similarity_threshold=self.cos_similarity_threshold,
+            )
             return weighted_params
         elif self.fusion == "dual_defense":
             logger.info("start dual-defense fusion")

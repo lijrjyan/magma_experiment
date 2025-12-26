@@ -1,0 +1,23 @@
+{
+  "run_id": "stage4_mnist_noattack_median",
+  "config_file": "configs/mnist.yaml",
+  "final_test_acc": 68.43,
+  "best_test_acc": 68.43,
+  "min_test_acc_after_attack": null,
+  "rounds": 5,
+  "dataset": "mnist",
+  "aggregator": "median",
+  "use_fhe": false,
+  "trimmed_ratio": 0.1,
+  "clipping_threshold": 0.1,
+  "krum_max_expected_adversaries": null,
+  "cos_similarity_threshold": null,
+  "attack_strategy": "none",
+  "attacker_ratio": 0.0,
+  "attack_start_round": 50,
+  "ipm_multiplier": 5,
+  "alie_epsilon": 0.1,
+  "label_flipping_ratio": 0.0,
+  "fake_data_size_multiplier": 10.0,
+  "seed": 7890
+}
