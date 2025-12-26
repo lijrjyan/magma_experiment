@@ -111,6 +111,9 @@ def compose_simulation_config(
         "learning_rate": train_cfg.get("learning_rate", 0.01),
         "batch_size": train_cfg.get("batch_size", 64),
         "data_dir": data_cfg.get("dir", "./data"),
+        "use_fake_data": bool(data_cfg.get("use_fake_data", False)),
+        "fake_train_size": int(data_cfg.get("fake_train_size", 2000)),
+        "fake_test_size": int(data_cfg.get("fake_test_size", 500)),
         "partition_type": partition_cfg.get("type", "iid"),
         "partition_dirichlet_beta": partition_cfg.get("beta", 0.5),
         "regularization": train_cfg.get("regularization", 1e-5),
@@ -187,6 +190,10 @@ def summarize_run(
 
 def main() -> None:
     args = parse_args()
+    project_root = Path(__file__).resolve().parents[1]
+    if str(project_root) not in sys.path:
+        sys.path.insert(0, str(project_root))
+
     config_path = Path(args.config)
     if not config_path.exists():
         print(f"Config file not found: {config_path}", file=sys.stderr)

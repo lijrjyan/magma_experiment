@@ -126,7 +126,7 @@ git push origin main
 
 **Commit message 建议**：`stage1: add unified experiment entrypoint + logging + config skeleton`
 
-### Step 2（对应 Stage 2）：数据加载与 Non-IID 切分
+### Step 2（对应 Stage 2）：数据加载与 Non-IID 切分 ✅（已完成）
 
 **目标**
 

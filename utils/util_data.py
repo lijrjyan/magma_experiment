@@ -1,9 +1,7 @@
 import os
-import copy
-import logging
+import json
 from collections import defaultdict
 from typing import Dict, List, Tuple, Any
-import random
 
 import numpy as np
 import torchvision.transforms as transforms
@@ -18,6 +16,87 @@ from utils.tinyimagenet import TinyImageNet
 from utils.util_sys import create_folder_if_not_exists
 
 from utils.logging import logger
+
+
+_DATASET_SPECS: Dict[str, Dict[str, Any]] = {
+    "mnist": {"root": "mnist", "image_shape": (1, 28, 28), "num_classes": 10},
+    "fmnist": {"root": "fmnist", "image_shape": (1, 28, 28), "num_classes": 10},
+    "cifar10": {"root": "cifar10", "image_shape": (3, 32, 32), "num_classes": 10},
+    "svhn": {"root": "svhn", "image_shape": (3, 32, 32), "num_classes": 10},
+    "emnist_byclass": {"root": "emnist", "image_shape": (1, 28, 28), "num_classes": 62},
+    "emnist_bymerge": {"root": "emnist", "image_shape": (1, 28, 28), "num_classes": 47},
+    "tinyimagenet": {"root": "tinyimagenet", "image_shape": (3, 64, 64), "num_classes": 200},
+}
+
+
+class RandomShardDataset(data.Dataset):
+    def __init__(
+        self,
+        *,
+        size: int,
+        image_shape: Tuple[int, ...],
+        num_classes: int,
+        seed: int,
+    ) -> None:
+        self._size = int(size)
+        self._image_shape = tuple(image_shape)
+        self._num_classes = int(num_classes)
+
+        rng = np.random.default_rng(seed)
+        self.targets = rng.integers(0, self._num_classes, size=self._size, dtype=np.int64).tolist()
+        self.classes = list(range(self._num_classes))
+
+        gen = torch.Generator()
+        gen.manual_seed(seed)
+        self._data = torch.rand((self._size, *self._image_shape), generator=gen, dtype=torch.float32)
+
+    def __getitem__(self, index: int):
+        return self._data[index], int(self.targets[index])
+
+    def __len__(self) -> int:
+        return self._size
+
+
+def resolve_dataset_root(dataset_name: str, dir_data: str) -> str:
+    spec = _DATASET_SPECS.get(dataset_name)
+    if spec is None:
+        return dir_data
+
+    preferred_root = os.path.join(dir_data, spec["root"])
+    if dataset_name == "tinyimagenet":
+        legacy_root = os.path.join(dir_data, "tiny-imagenet-200")
+        preferred_has_data = os.path.exists(os.path.join(preferred_root, "tiny-imagenet-200"))
+        legacy_has_data = os.path.exists(legacy_root)
+        if legacy_has_data and not preferred_has_data:
+            return dir_data
+
+    return preferred_root
+
+
+def build_fake_datasets(
+    dataset_name: str,
+    *,
+    seed: int,
+    train_size: int = 2000,
+    test_size: int = 500,
+):
+    spec = _DATASET_SPECS.get(dataset_name)
+    if spec is None:
+        raise ValueError(f"Dataset {dataset_name} not supported for fake fallback")
+
+    train_ds = RandomShardDataset(
+        size=train_size,
+        image_shape=spec["image_shape"],
+        num_classes=spec["num_classes"],
+        seed=seed,
+    )
+    test_ds = RandomShardDataset(
+        size=test_size,
+        image_shape=spec["image_shape"],
+        num_classes=spec["num_classes"],
+        seed=seed + 10_000,
+    )
+    return train_ds, test_ds
 
 
 def load_data_cifar10(
@@ -164,24 +243,61 @@ def load_data_tinyimagenet(
     return train_ds, test_ds
 
 
-def get_dataset(dataset_name: str, dir_data: str):
-    """Get the training and test datasets for a given dataset name."""
-    if dataset_name == "mnist":
-        return load_data_mnist(dir_data)
-    elif dataset_name == "fmnist":
-        return load_data_fmnist(dir_data)
-    elif dataset_name == "cifar10":
-        return load_data_cifar10(dir_data)
-    elif dataset_name == "svhn":
-        return load_data_svhn(dir_data)
-    elif dataset_name == "emnist_byclass":
-        return load_data_emnist_byclass(dir_data)
-    elif dataset_name == "emnist_bymerge":
-        return load_data_emnist_bymerge(dir_data)
-    elif dataset_name == "tinyimagenet":
-        return load_data_tinyimagenet(dir_data)
-    else:
+def get_dataset(
+    dataset_name: str,
+    dir_data: str,
+    *,
+    seed: int = 0,
+    use_fake_data: bool = False,
+    fake_train_size: int = 2000,
+    fake_test_size: int = 500,
+):
+    """Get train/test datasets for a dataset name.
+
+    `dir_data` is treated as a root directory; each dataset is stored under its own
+    subdirectory (e.g. `<dir_data>/mnist/`, `<dir_data>/cifar10/`).
+    """
+    if use_fake_data:
+        logger.warning("Using RandomShardDataset fake data for dataset=%s", dataset_name)
+        return build_fake_datasets(
+            dataset_name,
+            seed=seed,
+            train_size=fake_train_size,
+            test_size=fake_test_size,
+        )
+
+    dataset_root = resolve_dataset_root(dataset_name, dir_data)
+    create_folder_if_not_exists(dataset_root)
+
+    try:
+        if dataset_name == "mnist":
+            return load_data_mnist(dataset_root)
+        if dataset_name == "fmnist":
+            return load_data_fmnist(dataset_root)
+        if dataset_name == "cifar10":
+            return load_data_cifar10(dataset_root)
+        if dataset_name == "svhn":
+            return load_data_svhn(dataset_root)
+        if dataset_name == "emnist_byclass":
+            return load_data_emnist_byclass(dataset_root)
+        if dataset_name == "emnist_bymerge":
+            return load_data_emnist_bymerge(dataset_root)
+        if dataset_name == "tinyimagenet":
+            return load_data_tinyimagenet(dataset_root)
         raise ValueError(f"Dataset {dataset_name} not supported")
+    except Exception as exc:
+        logger.warning(
+            "Failed to load dataset=%s from %s (%s). Falling back to RandomShardDataset.",
+            dataset_name,
+            dataset_root,
+            exc,
+        )
+        return build_fake_datasets(
+            dataset_name,
+            seed=seed,
+            train_size=fake_train_size,
+            test_size=fake_test_size,
+        )
 
 
 def partition_data(
@@ -192,8 +308,12 @@ def partition_data(
     partition_beta: float,
     min_samples_per_client: int,
     max_samples_per_client: int,
+    rng: Any = None,
 ) -> tuple:
     """Partition the dataset among clients based on the partition type."""
+    if rng is None:
+        rng = np.random.default_rng()
+
     # Check if dataset has targets attribute
     if hasattr(train_ds, 'targets'):
         labels = np.array(train_ds.targets)
@@ -212,26 +332,32 @@ def partition_data(
             raise ValueError("Dataset format not supported - cannot find labels")
 
     if partition_type == "iid":
-        user_groups = partition_data_iid(train_ds, num_clients)
+        user_groups = partition_data_iid(train_ds, num_clients, rng)
         return train_ds, test_ds, user_groups
     elif partition_type == "noniid":
-        user_groups = partition_data_non_iid(labels, num_clients, partition_beta)
+        user_groups = partition_data_non_iid(labels, num_clients, partition_beta, rng)
         return train_ds, test_ds, user_groups
     elif partition_type == "dirichlet_fixed":
-        user_groups = partition_data_dirichlet_fixed(labels, num_clients, partition_beta)
+        user_groups = partition_data_dirichlet_fixed(labels, num_clients, partition_beta, rng)
         return train_ds, test_ds, user_groups
     elif partition_type == "iid_quantity_skew":
-        user_groups = partition_data_iid_quantity_skew(labels, num_clients, min_samples_per_client, max_samples_per_client)
+        user_groups = partition_data_iid_quantity_skew(
+            labels,
+            num_clients,
+            min_samples_per_client,
+            max_samples_per_client,
+            rng,
+        )
         return train_ds, test_ds, user_groups
     else:
         raise ValueError(f"Partition type {partition_type} not supported")
 
 
-def partition_data_iid(train_ds, num_clients):
+def partition_data_iid(train_ds, num_clients, rng: Any):
     """Partition the dataset in an IID manner."""
     num_samples = len(train_ds)
     indices = np.arange(num_samples)
-    np.random.shuffle(indices)
+    rng.shuffle(indices)
     
     # Divide indices equally among clients
     chunks = np.array_split(indices, num_clients)
@@ -240,7 +366,7 @@ def partition_data_iid(train_ds, num_clients):
     return user_groups
 
 
-def partition_data_non_iid(labels, num_clients, beta):
+def partition_data_non_iid(labels, num_clients, beta, rng: Any):
     """
     Partition the dataset in a non-IID manner using Dirichlet distribution.
     
@@ -260,7 +386,7 @@ def partition_data_non_iid(labels, num_clients, beta):
     
     # For each class, distribute data to clients according to Dirichlet distribution
     for c in range(num_classes):
-        proportions = np.random.dirichlet(np.repeat(beta, num_clients))
+        proportions = rng.dirichlet(np.repeat(beta, num_clients))
         # Normalize proportions to sum to the number of samples in this class
         proportions = proportions / proportions.sum() * len(class_indices[c])
         proportions = proportions.astype(int)
@@ -270,7 +396,7 @@ def partition_data_non_iid(labels, num_clients, beta):
         proportions[-1] += diff
         
         # Distribute indices
-        indices = np.random.permutation(class_indices[c])
+        indices = rng.permutation(class_indices[c])
         start_idx = 0
         for i in range(num_clients):
             end_idx = start_idx + proportions[i]
@@ -280,7 +406,7 @@ def partition_data_non_iid(labels, num_clients, beta):
     return user_groups
 
 
-def partition_data_dirichlet_fixed(labels, num_clients, beta):
+def partition_data_dirichlet_fixed(labels, num_clients, beta, rng: Any):
     """
     Partitions data with non-IID label distribution and roughly equal quantity per client.
     1. Initially partitions data using a Dirichlet distribution, creating non-IID label distributions
@@ -291,7 +417,7 @@ def partition_data_dirichlet_fixed(labels, num_clients, beta):
     This approach preserves the non-IID label skew better than re-shuffling all data.
     """
     # 1. Standard Dirichlet partition
-    user_groups = partition_data_non_iid(labels, num_clients, beta)
+    user_groups = partition_data_non_iid(labels, num_clients, beta, rng)
     
     # 2. Balance clients to have a target number of samples
     target_samples_per_client = len(labels) // num_clients
@@ -312,7 +438,7 @@ def partition_data_dirichlet_fixed(labels, num_clients, beta):
         # Remove them from the original client
         user_groups[client_id] = user_groups[client_id][excess_count:]
 
-    np.random.shuffle(excess_pool)
+    rng.shuffle(excess_pool)
     
     # Distribute excess indices to under-provisioned clients
     for client_id in under_clients:
@@ -326,7 +452,7 @@ def partition_data_dirichlet_fixed(labels, num_clients, beta):
 
     # If any samples remain in the pool (due to rounding), distribute them
     client_ids = list(range(num_clients))
-    np.random.shuffle(client_ids)
+    rng.shuffle(client_ids)
     idx = 0
     while len(excess_pool) > 0:
         client_id = client_ids[idx % num_clients]
@@ -336,16 +462,16 @@ def partition_data_dirichlet_fixed(labels, num_clients, beta):
     return user_groups
 
 
-def partition_data_iid_quantity_skew(labels, num_clients, min_size, max_size):
+def partition_data_iid_quantity_skew(labels, num_clients, min_size, max_size, rng: Any):
     """
     Partitions data with IID label distribution but varying quantity per client.
     """
     num_samples = len(labels)
     indices = np.arange(num_samples)
-    np.random.shuffle(indices)
+    rng.shuffle(indices)
 
     # Generate random sizes for each client
-    client_sizes = np.random.randint(min_size, max_size, num_clients)
+    client_sizes = rng.integers(min_size, max_size, num_clients)
     
     # Scale sizes to sum to the total number of samples
     total_requested_size = client_sizes.sum()
@@ -438,6 +564,70 @@ def record_data_statistic(client_data_loaders, num_clients):
         logger.info(f"Client {i} - total training samples: {len(subset)}")
         # Sort by key for consistent log output
         logger.info(f"Client {i} - training label distribution: {dict(sorted(label_count.items()))}")
+
+
+def build_client_stats(
+    *,
+    dataset_name: str,
+    num_clients: int,
+    partition_type: str,
+    partition_beta: float,
+    seed: int,
+    data_balance_strategy: str,
+    imbalance_percentage: float,
+    user_groups: Dict[int, List[int]],
+    labels: np.ndarray,
+) -> Dict[str, Any]:
+    sample_counts: List[int] = []
+    label_totals: Dict[int, int] = defaultdict(int)
+    clients: Dict[str, Any] = {}
+
+    for client_id in range(num_clients):
+        indices = np.array(user_groups.get(client_id, []), dtype=np.int64)
+        sample_counts.append(int(indices.size))
+
+        if indices.size == 0:
+            label_counts: Dict[str, int] = {}
+        else:
+            client_labels = labels[indices]
+            unique_labels, counts = np.unique(client_labels, return_counts=True)
+            label_counts = {str(int(label)): int(count) for label, count in zip(unique_labels, counts)}
+            for label, count in zip(unique_labels, counts):
+                label_totals[int(label)] += int(count)
+
+        clients[str(client_id)] = {
+            "num_samples": int(indices.size),
+            "label_counts": label_counts,
+        }
+
+    stats = {
+        "dataset": dataset_name,
+        "seed": int(seed),
+        "num_clients": int(num_clients),
+        "partition": {
+            "type": partition_type,
+            "beta": float(partition_beta),
+        },
+        "data_balance_strategy": data_balance_strategy,
+        "imbalance_percentage": float(imbalance_percentage),
+        "summary": {
+            "min_samples_per_client": min(sample_counts) if sample_counts else 0,
+            "max_samples_per_client": max(sample_counts) if sample_counts else 0,
+            "mean_samples_per_client": float(np.mean(sample_counts)) if sample_counts else 0.0,
+            "label_totals": {str(k): int(v) for k, v in sorted(label_totals.items(), key=lambda kv: kv[0])},
+        },
+        "clients": clients,
+    }
+    return stats
+
+
+def write_client_stats(stats: Dict[str, Any], path: str) -> None:
+    dir_name = os.path.dirname(path)
+    if dir_name:
+        os.makedirs(dir_name, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as handle:
+        json.dump(stats, handle, indent=2, sort_keys=True)
+    logger.info("Saved client stats to %s", path)
 
 
 def get_client_data(
@@ -589,13 +779,25 @@ def get_client_data_loader(
     log_dir: str = './logs',
     min_samples_per_client: int = 100,
     max_samples_per_client: int = 2000,
+    use_fake_data: bool = False,
+    fake_train_size: int = 2000,
+    fake_test_size: int = 500,
+    client_stats_path: str | None = None,
 ) -> dict:
     """
     return the dataloaders for clients
     """
     logger.info("start data partitioning...")
 
-    train_dataset, test_dataset = get_dataset(dataset_name, dir_data)
+    rng = np.random.default_rng(seed)
+    train_dataset, test_dataset = get_dataset(
+        dataset_name,
+        dir_data,
+        seed=seed,
+        use_fake_data=use_fake_data,
+        fake_train_size=fake_train_size,
+        fake_test_size=fake_test_size,
+    )
 
     if data_balance_strategy == "extreme_imbalance":
         # This function now correctly handles partitioning for other clients internally
@@ -608,6 +810,7 @@ def get_client_data_loader(
             imbalance_percentage,
             min_samples_per_client,
             max_samples_per_client,
+            rng,
         )
     else:
         # Handle "balanced" and "soft_imbalance"
@@ -619,13 +822,13 @@ def get_client_data_loader(
             other_indices = np.where(targets != 0)[0]
             
             # Keep 10% of class 0
-            np.random.shuffle(class0_indices)
+            rng.shuffle(class0_indices)
             keep_count = int(len(class0_indices) * 0.1)
             kept_class0_indices = class0_indices[:keep_count]
             
             # Combine indices and create a subset
             final_indices = np.concatenate((kept_class0_indices, other_indices))
-            np.random.shuffle(final_indices)
+            rng.shuffle(final_indices)
             
             dataset_to_partition = torch.utils.data.Subset(train_dataset, final_indices)
             dataset_to_partition.targets = targets[final_indices]
@@ -639,6 +842,7 @@ def get_client_data_loader(
             partition_dirichlet_beta,
             min_samples_per_client,
             max_samples_per_client,
+            rng,
         )
 
         # Map indices from the partitioned dataset back to the original full dataset
@@ -652,6 +856,21 @@ def get_client_data_loader(
         plot_partition_stats(
             user_groups, labels, num_clients, f"{partition_type}_{data_balance_strategy}", log_dir
         )
+
+    labels = np.array(train_dataset.targets)
+    stats = build_client_stats(
+        dataset_name=dataset_name,
+        num_clients=num_clients,
+        partition_type=partition_type,
+        partition_beta=partition_dirichlet_beta,
+        seed=seed,
+        data_balance_strategy=data_balance_strategy,
+        imbalance_percentage=imbalance_percentage,
+        user_groups=user_groups,
+        labels=labels,
+    )
+    if client_stats_path:
+        write_client_stats(stats, client_stats_path)
     
     client_loaders = {}
     
@@ -705,11 +924,15 @@ def partition_data_imbalance(
     imbalance_percentage: float = 0.1,
     min_samples_per_client: int = 100,
     max_samples_per_client: int = 2000,
+    rng: Any = None,
 ) -> tuple:
     """
     Partitions data for an imbalanced scenario. Client 0 gets a small portion of class 0.
     The remaining data (from other classes only) is partitioned among the other N-1 clients.
     """
+    if rng is None:
+        rng = np.random.default_rng()
+
     y_train = np.array(train_ds.targets)
     
     # Get indices for class 0 and other classes
@@ -717,7 +940,7 @@ def partition_data_imbalance(
     other_classes_indices = np.where(y_train != 0)[0]
     
     # Shuffle class 0 indices
-    np.random.shuffle(class0_indices)
+    rng.shuffle(class0_indices)
     
     # Determine how many class 0 samples to give to client 0
     num_class0_for_client0 = int(len(class0_indices) * imbalance_percentage)
@@ -728,7 +951,7 @@ def partition_data_imbalance(
     # The rest of the clients get data ONLY from other classes.
     # The remaining class 0 data is effectively discarded.
     remaining_indices = other_classes_indices
-    np.random.shuffle(remaining_indices)
+    rng.shuffle(remaining_indices)
     
     if num_clients > 1:
         # Create a subset of the dataset for the remaining clients (contains no class 0)
@@ -744,6 +967,7 @@ def partition_data_imbalance(
             partition_dirichlet_beta,
             min_samples_per_client,
             max_samples_per_client,
+            rng,
         )
 
         # Map the indices from the subset back to the original dataset indices

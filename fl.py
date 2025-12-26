@@ -15,7 +15,6 @@ import torch.utils.data as data
 
 from utils.util_sys import get_available_device, intersection_of_lists
 from utils.util_data import get_client_data_loader
-from utils.util_data import get_global_test_data_loader
 from utils.util_model import get_client_model
 from utils.util_model import (
     ipm_attack_craft_model,
@@ -55,7 +54,11 @@ class SimulationFL(ABC):
         self.fusion = config.get("fusion", "fedavg")
         self.partion_type = config.get("partition_type", "noniid")
         self.partion_dirichlet_beta = config.get("partition_dirichlet_beta", 0.25)
-        self.dir_data = config.get("dir_data", "./data/")
+        self.dir_data = config.get("data_dir") or config.get("dir_data") or "./data/"
+        self.results_dir = config.get("results_dir")
+        self.use_fake_data = bool(config.get("use_fake_data", False))
+        self.fake_train_size = int(config.get("fake_train_size", 2000))
+        self.fake_test_size = int(config.get("fake_test_size", 500))
 
         self.training_round = config.get("training_round", 10)
         self.local_epochs = config.get("local_epochs", 1)
@@ -110,6 +113,11 @@ class SimulationFL(ABC):
             logger.info("no seed is set")
 
     def init_data(self) -> None:
+        results_dir = self.results_dir or os.path.abspath(os.path.join(self.log_dir, os.pardir))
+        artifacts_dir = os.path.join(results_dir, "artifacts")
+        os.makedirs(artifacts_dir, exist_ok=True)
+        client_stats_path = os.path.join(artifacts_dir, "client_stats.json")
+
         self.client_data_loader = get_client_data_loader(
             self.dataset,
             self.dir_data,
@@ -121,13 +129,17 @@ class SimulationFL(ABC):
             data_balance_strategy=self.data_balance_strategy,
             imbalance_percentage=self.imbalance_percentage,
             plot_partition_stats_flag=self.plot_partition_stats,
-            log_dir=os.path.join(self.log_dir, self.filename_core),
+            log_dir=self.log_dir,
             min_samples_per_client=self.min_samples_per_client,
             max_samples_per_client=self.max_samples_per_client,
+            use_fake_data=self.use_fake_data,
+            fake_train_size=self.fake_train_size,
+            fake_test_size=self.fake_test_size,
+            client_stats_path=client_stats_path,
         )
-        self.server_test_data_loader = get_global_test_data_loader(
-            self.dataset, self.dir_data, self.batch_size, seed=self.seed
-        )
+        if not self.client_data_loader:
+            raise RuntimeError("No client dataloaders were created; check partitioning settings.")
+        self.server_test_data_loader = next(iter(self.client_data_loader.values()))[1]
 
     def init_model(self) -> None:
         self.client_model = get_client_model(

@@ -7,6 +7,9 @@ experiment:
 data:
   dataset: mnist
   dir: ./data
+  use_fake_data: false
+  fake_train_size: 2000
+  fake_test_size: 500
   partition:
     type: iid
     beta: 0.5

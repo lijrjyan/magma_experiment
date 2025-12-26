@@ -1,11 +1,11 @@
 experiment:
-  name: tinyimagenet_sanity
+  name: cifar10_fedavg_sanity
   output_dir: results
-  seed: 42
-  description: "Stage1 sanity run for TinyImageNet"
+  seed: 7890
+  description: "Stage2 sanity run for CIFAR10"
 
 data:
-  dataset: tinyimagenet
+  dataset: cifar10
   dir: ./data
   use_fake_data: false
   fake_train_size: 2000
@@ -13,8 +13,8 @@ data:
   partition:
     type: iid
     beta: 0.5
-    min_samples_per_client: 200
-    max_samples_per_client: 4000
+    min_samples_per_client: 100
+    max_samples_per_client: 2000
   num_clients: 100
   clients_per_round: 10
   data_balance_strategy: balanced
@@ -22,8 +22,8 @@ data:
   plot_partition_stats: false
 
 training:
-  rounds: 3
-  local_epochs: 3
+  rounds: 5
+  local_epochs: 1
   batch_size: 64
   optimizer: sgd
   learning_rate: 0.01
@@ -45,3 +45,4 @@ attacks:
 logging:
   tensorboard: true
   keep_magma_metrics: true
+
