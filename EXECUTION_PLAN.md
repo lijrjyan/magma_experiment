@@ -83,6 +83,7 @@ git push origin main
 
 - MNIST/FMNIST：CNN9 (~200k 参数)
 - CIFAR10：CNN9 或 ResNet-18（至少 1 个深模型支撑“可扩展性”）
+- TinyImageNet：ResNet-18 或 TinyImageNetResNet18（与现有 utils 模型保持一致）
 
 ### 3.3 MAGMA 口径
 
@@ -113,8 +114,8 @@ git push origin main
 - 提交信息：`stage1: add unified experiment entrypoint + logging + config skeleton`
 
 ### Stage 2：数据加载与 Non-IID 切分
-- 目标：MNIST/FMNIST/CIFAR10 数据下载 + IID + Dirichlet 切分可复现
-- 产物：`data/loaders.py`、`data/partition.py`、`configs/{mnist,fmnist,cifar10}.yaml`
+- 目标：MNIST/FMNIST/CIFAR10/TinyImageNet 数据下载 + IID + Dirichlet 切分可复现
+- 产物：`data/loaders.py`、`data/partition.py`、`configs/{mnist,fmnist,cifar10,tinyimagenet}.yaml`
 - 验收：同 dataset/seed/alpha 结果一致；输出 `results/.../client_stats.json`
 - 提交信息：`stage2: add dataset loaders + reproducible iid/dirichlet partitioning with client stats`
 
@@ -149,7 +150,7 @@ git push origin main
 - 提交信息：`stage7: add FHE abstraction (mock + optional CKKS backend) for MAGMA distances and DDFed similarities`
 
 ### Stage 8：主实验矩阵
-- 目标：MNIST/FMNIST/CIFAR10 × attacks × iid/dirichlet × ratios × seeds
+- 目标：MNIST/FMNIST/CIFAR10/TinyImageNet × attacks × iid/dirichlet × ratios × seeds
 - 产物：`scripts/sweep.sh`、`results/summary_table.{csv,json}`
 - 验收：组合可跑完；summary 含 final/min/recovery/FP/FN/time
 - 提交信息：`stage8: run main experiment grid and generate summary tables (accuracy/FPFN/runtime)`
@@ -209,6 +210,10 @@ git push origin main
 # 1) 无攻击 sanity
 python scripts/run_exp.py --config configs/mnist.yaml --run-name mnist_no_attack \
     --override attacks.strategy=none
+
+# 1b) TinyImageNet sanity
+python scripts/run_exp.py --config configs/tinyimagenet.yaml --run-name tinyimagenet_no_attack \
+    --override attacks.strategy=none --override training.rounds=1
 
 # 2) IPM 对比（MAGMA vs DDFed）
 python scripts/run_exp.py --config configs/fmnist.yaml --run-name fmnist_magma_ipm \

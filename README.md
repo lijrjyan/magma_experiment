@@ -18,9 +18,15 @@ Run a sanity experiment (results stored under `results/<run_id>/`):
 python scripts/run_exp.py --config configs/mnist.yaml --run-name mnist_sanity
 ```
 
+For TinyImageNet (after downloading/extracting the dataset under `./data`):
+
+```bash
+python scripts/run_exp.py --config configs/tinyimagenet.yaml --run-name tinyimagenet_sanity
+```
+
 Key directories:
 
-- `configs/`: dataset/attack/aggregator/FHE parameters
+- `configs/`: dataset/attack/aggregator/FHE parameters (MNIST/FMNIST/CIFAR10/TinyImageNet)
 - `scripts/`: experiment runner plus future sweep/summarize/plot utilities
 - `magma/`: geometric aggregator modules (distance, clustering, FHE backend)
 - `baselines/`: FedAvg, Krum, Median, TrimmedMean, ClipMedian, CosDefense, DDFed
