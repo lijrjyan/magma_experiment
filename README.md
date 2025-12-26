@@ -42,6 +42,22 @@ python scripts/run_exp.py --config configs/tinyimagenet.yaml --run-name tinyimag
 - 明文 baselines：见 `configs/aggregators.yaml`；示例证据 `results/stage4_mnist_noattack_fedavg/`、`results/stage4_mnist_scaling_clipmedian/`。
 - MAGMA vs DDFed：Stage 6-9 会在 `results/summary_table.{csv,json}` 和 `docs/dual_defense_comparison.md` 中发布最终精度/FP/FN/time；当前仅有结构说明。
 
+### Stage4 实测结果（MNIST，IID，seed=7890，rounds=5，local_epochs=1）
+
+说明：`test_acc` 为百分比（0-100），来源为每个 `results/<run_id>/artifacts/summary.json`。
+
+| run_id | aggregator | attack | final_test_acc | best_test_acc | min_test_acc_after_attack |
+| --- | --- | --- | ---: | ---: | ---: |
+| `stage4_mnist_noattack_fedavg` | `fedavg` | `none` | 67.42 | 67.42 |  |
+| `stage4_mnist_noattack_krum` | `krum` | `none` | 69.06 | 69.06 |  |
+| `stage4_mnist_noattack_median` | `median` | `none` | 68.43 | 68.43 |  |
+| `stage4_mnist_noattack_trimmedmean` | `trimmed_mean` | `none` | 67.57 | 67.57 |  |
+| `stage4_mnist_noattack_clipmedian` | `clipping_median` | `none` | 68.39 | 68.39 |  |
+| `stage4_mnist_noattack_cosdefense` | `cos_defense` | `none` | 69.68 | 69.68 |  |
+| `stage4_mnist_scaling_clipmedian` | `clipping_median` | `model_poisoning_scaling` | 68.16 | 68.16 | 54.92 |
+
+![stage4_mnist_curves](docs/figures/stage4_mnist_curves.png)
+
 ## 数据说明
 
 本仓库不提交任何数据文件（`data/` 下的原始数据、缓存、切分统计都在 `.gitignore` 中）。在本地准备好 MNIST/FMNIST/CIFAR10/TinyImageNet 后，再运行 `scripts/run_exp.py`。默认 non-IID 设置为 Dirichlet α=0.5，可在 `configs/*.yaml` 中覆盖；切分统计会保存成 `results/<run_id>/artifacts/client_stats.json`。
