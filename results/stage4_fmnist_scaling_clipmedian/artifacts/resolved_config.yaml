@@ -1,0 +1,44 @@
+aggregation:
+  fake_data_size_multiplier: 10.0
+  method: clipping_median
+  use_fhe: false
+attacks:
+  alie_epsilon: 0.1
+  attack_start_round: 2
+  attacker_ratio: 0.3
+  fake_data_size_multiplier: 10.0
+  ipm_multiplier: 5
+  label_flipping_ratio: 0.5
+  strategy: model_poisoning_scaling
+data:
+  clients_per_round: 10
+  data_balance_strategy: balanced
+  dataset: fmnist
+  dir: ./data
+  fake_test_size: 500
+  fake_train_size: 2000
+  imbalance_percentage: 0.1
+  num_clients: 100
+  partition:
+    beta: 0.5
+    max_samples_per_client: 2000
+    min_samples_per_client: 100
+    type: iid
+  plot_partition_stats: false
+  strict_data: false
+  use_fake_data: false
+experiment:
+  description: Stage2 sanity run for FashionMNIST
+  name: fmnist_fedavg_sanity
+  output_dir: results
+  seed: 7890
+logging:
+  keep_magma_metrics: true
+  tensorboard: false
+training:
+  batch_size: 64
+  learning_rate: 0.01
+  local_epochs: 1
+  optimizer: sgd
+  regularization: 1.0e-05
+  rounds: 5

@@ -1,0 +1,23 @@
+{
+  "run_id": "stage4_tinyimagenet_noattack_fedavg",
+  "config_file": "configs/tinyimagenet.yaml",
+  "final_test_acc": 3.52,
+  "best_test_acc": 3.52,
+  "min_test_acc_after_attack": null,
+  "rounds": 5,
+  "dataset": "tinyimagenet",
+  "aggregator": "fedavg",
+  "use_fhe": false,
+  "trimmed_ratio": 0.1,
+  "clipping_threshold": 0.1,
+  "krum_max_expected_adversaries": null,
+  "cos_similarity_threshold": null,
+  "attack_strategy": "none",
+  "attacker_ratio": 0.0,
+  "attack_start_round": 50,
+  "ipm_multiplier": 5,
+  "alie_epsilon": 0.1,
+  "label_flipping_ratio": 0.0,
+  "fake_data_size_multiplier": 10.0,
+  "seed": 7890
+}

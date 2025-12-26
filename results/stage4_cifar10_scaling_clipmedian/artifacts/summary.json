@@ -1,0 +1,23 @@
+{
+  "run_id": "stage4_cifar10_scaling_clipmedian",
+  "config_file": "configs/cifar10.yaml",
+  "final_test_acc": 10.67,
+  "best_test_acc": 13.01,
+  "min_test_acc_after_attack": 10.0,
+  "rounds": 5,
+  "dataset": "cifar10",
+  "aggregator": "clipping_median",
+  "use_fhe": false,
+  "trimmed_ratio": 0.1,
+  "clipping_threshold": 0.1,
+  "krum_max_expected_adversaries": null,
+  "cos_similarity_threshold": null,
+  "attack_strategy": "model_poisoning_scaling",
+  "attacker_ratio": 0.3,
+  "attack_start_round": 2,
+  "ipm_multiplier": 5,
+  "alie_epsilon": 0.1,
+  "label_flipping_ratio": 0.5,
+  "fake_data_size_multiplier": 10.0,
+  "seed": 7890
+}
