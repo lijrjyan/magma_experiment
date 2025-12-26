@@ -105,73 +105,217 @@ git push origin main
 
 ## 4) 分阶段执行计划
 
-每阶段完成后必须 push。必要时在 `results/` 中保留 sanity 日志作为验收证据。
+每阶段完成后必须 push，可按“主线 + 兜底”双轨推进；必要时在 `results/` 中保留 sanity 日志作为验收证据。
 
-### Stage 1：工程骨架 + 统一入口 ✅（已完成）
-- 目标：`scripts/run_exp.py` 统一入口、配置驱动、日志/metrics/summaries 固化
-- 产物：`scripts/run_exp.py`、`configs/*`、`utils/logging.py`、`results/<run_id>/...`
-- 验收：`python scripts/run_exp.py --config configs/mnist.yaml --run-name sanity` 能跑并生成日志
-- 提交信息：`stage1: add unified experiment entrypoint + logging + config skeleton`
+### Step 1（对应 Stage 1）：工程骨架 + 统一入口 ✅（已完成）
 
-### Stage 2：数据加载与 Non-IID 切分
-- 目标：MNIST/FMNIST/CIFAR10/TinyImageNet 数据下载 + IID + Dirichlet 切分可复现
-- 产物：`data/loaders.py`、`data/partition.py`、`configs/{mnist,fmnist,cifar10,tinyimagenet}.yaml`
-- 验收：同 dataset/seed/alpha 结果一致；输出 `results/.../client_stats.json`
-- 提交信息：`stage2: add dataset loaders + reproducible iid/dirichlet partitioning with client stats`
+**目标**
 
-### Stage 3：攻击实现（IPM / ALIE / Scaling / LabelFlip）
-- 目标：攻击模块化，支持 start_round/ratio/强度
-- 产物：`attacks/*.py` + `configs/attacks.yaml`
-- 验收：单轮 sanity + FedAvg accuracy 明显下降
-- 提交信息：`stage3: implement poisoning attacks (ipm/alie/scaling/label-flip) with unified interfaces`
+- 主线：`scripts/run_exp.py` 统一入口、YAML 配置驱动，并固化日志/metrics/summaries。
+- 兜底：`python scripts/run_exp.py --dry-run` 至少能解析配置并输出 run_id 结构，方便后续调试。
 
-### Stage 4：明文 baselines（FedAvg/Krum/Median/TrimmedMean/ClipMedian/CosDefense）
-- 目标：无加密下所有聚合器跑通
-- 产物：`baselines/*.py`、`configs/aggregators.yaml`
-- 验收：无攻击时精度接近；Scaling attack 下 ClipMedian 稳定
-- 提交信息：`stage4: add plaintext baselines (krum/median/trimmed/clipmedian/cosdefense) and validate curves`
+**产出物（仓库内）**
 
-### Stage 5：MAGMA 明文模式
-- 目标：实现 Ward + jump ratio + largest component；记录 k*、kept_clients、FP/FN
-- 产物：`magma/distance.py`、`magma/clustering.py`、`magma/aggregator.py`、`baselines/magma.py`
-- 验收：Non-IID 下 FP 低、accuracy 稳定；无 jump 时全保留
-- 提交信息：`stage5: implement MAGMA plaintext (ward + jump ratio) with per-round FP/FN logging`
+- `scripts/run_exp.py`、`configs/*`、`utils/logging.py`、`results/<run_id>/...`
 
-### Stage 6：DDFed 基线复现
-- 目标：两阶段相似度 + majority vote + 可选 clipping；记录交互次数
-- 产物：`baselines/ddfed.py`、`docs/dual_defense_comparison.md`（初稿）
-- 验收：复现 DDFed 趋势；日志包含交互统计
-- 提交信息：`stage6: add DDFed baseline (two-phase selection + optional clipping) and write initial MAGMA vs DDFed comparison`
+**验收**
 
-### Stage 7：FHE 模式打通
-- 目标：`--fhe on/off`；MAGMA 距离/FHE mock；DDFed 相似度/FHE mock；后端封装
-- 产物：`magma/fhe_backend.py`、`configs/fhe.yaml`
-- 验收：`--fhe mock` 结果与明文一致；若接入 TenSEAL，至少小规模跑通 1 个 round
-- 提交信息：`stage7: add FHE abstraction (mock + optional CKKS backend) for MAGMA distances and DDFed similarities`
+- `python scripts/run_exp.py --config configs/mnist.yaml --run-name sanity` 能跑通并生成日志。
 
-### Stage 8：主实验矩阵
-- 目标：MNIST/FMNIST/CIFAR10/TinyImageNet × attacks × iid/dirichlet × ratios × seeds
-- 产物：`scripts/sweep.sh`、`results/summary_table.{csv,json}`
-- 验收：组合可跑完；summary 含 final/min/recovery/FP/FN/time
-- 提交信息：`stage8: run main experiment grid and generate summary tables (accuracy/FPFN/runtime)`
+**结束必须 push**：`git status && git add -A && git commit -m "stage1: add unified experiment entrypoint + logging + config skeleton" && git push origin main`
 
-### Stage 9：作图与论文落地
-- 目标：生成曲线/表格；完善对比文本
-- 产物：`scripts/plot_curves.py`、`results/figures/`、`docs/dual_defense_comparison.md`（完整版）
-- 验收：`python scripts/plot_curves.py --input results/summary_table.csv --out results/figures` 成功；图可直接入论文
-- 提交信息：`stage9: add plotting + finalize MAGMA vs DDFed comparison text and paper-ready figures/tables`
+**Commit message 建议**：`stage1: add unified experiment entrypoint + logging + config skeleton`
 
-### Stage 10：消融实验
-- 目标：λ、层级、heterogeneity 强度 三组消融
-- 产物：`results/ablation/*.csv`、`results/figures/ablation_*.png`、`docs/threat_model_alignment.md`
-- 验收：支撑论文的“why/when/conservative”叙述
-- 提交信息：`stage10: add MAGMA ablations (lambda/layer/heterogeneity) with analysis-ready plots`
+### Step 2（对应 Stage 2）：数据加载与 Non-IID 切分
 
-### Stage 11：最终复现包
-- 目标：REPRODUCE 文档 + env 描述 + 一键脚本
-- 产物：`REPRODUCE.md`、`environment.yml`（或 requirements） 、`scripts/reproduce_main.sh`、`CITATION.bib`
-- 验收：在全新环境跑 MNIST/FMNIST 主结果
-- 提交信息：`stage11: add full reproduction package (env + one-click scripts + docs)`
+**目标**
+
+- 主线：实现 MNIST/FMNIST/CIFAR10/TinyImageNet 的下载、缓存、IID/Dirichlet 切分，保证同 seed 可复现。
+- 兜底：提供最小 `RandomShardDataset`，即便主数据下载失败，也能用假数据跑通 `run_exp.py` 的数据管线。
+
+**产出物（仓库内）**
+
+- `data/loaders.py`、`data/partition.py`、`configs/{mnist,fmnist,cifar10,tinyimagenet}.yaml`
+- `results/<run_id>/artifacts/client_stats.json`
+
+**验收**
+
+- 同 dataset/seed/alpha 下 partition 结果一致；`client_stats.json` 记录 label/样本数量。
+
+**结束必须 push**：`git status && git add -A && git commit -m "stage2: add dataset loaders + reproducible iid/dirichlet partitioning with client stats" && git push origin main`
+
+**Commit message 建议**：`stage2: add dataset loaders + reproducible iid/dirichlet partitioning with client stats`
+
+### Step 3（对应 Stage 3）：攻击实现（IPM / ALIE / Scaling / Label Flip）
+
+**目标**
+
+- 主线：统一攻击接口（支持 start_round / ratio / 强度），并在 `configs/attacks.yaml` 中配置。
+- 兜底：至少保留一个 Scaling 攻击脚本，可单独注入噪声，用于早期 sanity。
+
+**产出物（仓库内）**
+
+- `attacks/*.py`、`configs/attacks.yaml`
+
+**验收**
+
+- 手动触发单轮攻击能让 FedAvg accuracy 明显下降，并记录攻击参数。
+
+**结束必须 push**：`git status && git add -A && git commit -m "stage3: implement poisoning attacks (ipm/alie/scaling/label-flip) with unified interfaces" && git push origin main`
+
+**Commit message 建议**：`stage3: implement poisoning attacks (ipm/alie/scaling/label-flip) with unified interfaces`
+
+### Step 4（对应 Stage 4）：明文 baselines（FedAvg / Krum / Median / TrimmedMean / ClipMedian / CosDefense）
+
+**目标**
+
+- 主线：无加密模式下所有聚合器跑通，并可在配置中切换。
+- 兜底：即便部分聚合器未完成，也保证 FedAvg + TrimmedMean 稳定运行，为后续调试提供基线。
+
+**产出物（仓库内）**
+
+- `baselines/*.py`、`configs/aggregators.yaml`
+
+**验收**
+
+- 无攻击时各聚合器精度接近；Scaling attack 下 ClipMedian 曲线稳定。
+
+**结束必须 push**：`git status && git add -A && git commit -m "stage4: add plaintext baselines (krum/median/trimmed/clipmedian/cosdefense) and validate curves" && git push origin main`
+
+**Commit message 建议**：`stage4: add plaintext baselines (krum/median/trimmed/clipmedian/cosdefense) and validate curves`
+
+### Step 5（对应 Stage 5）：MAGMA 明文模式
+
+**目标**
+
+- 主线：实现 Ward linkage + jump ratio + largest component 聚合，记录 `k*`、`kept_clients`、`FP/FN`。
+- 兜底：当无法找到有效 jump ratio 时，退化为全保留并记录保守决策，确保训练不中断。
+
+**产出物（仓库内）**
+
+- `magma/distance.py`、`magma/clustering.py`、`magma/aggregator.py`、`baselines/magma.py`
+
+**验收**
+
+- Non-IID 设置下 FP 低、accuracy 稳定；无 jump 时默认全保留并有日志。
+
+**结束必须 push**：`git status && git add -A && git commit -m "stage5: implement MAGMA plaintext (ward + jump ratio) with per-round FP/FN logging" && git push origin main`
+
+**Commit message 建议**：`stage5: implement MAGMA plaintext (ward + jump ratio) with per-round FP/FN logging`
+
+### Step 6（对应 Stage 6）：DDFed 基线复现
+
+**目标**
+
+- 主线：完成两阶段相似度 + majority vote + 可选 clipping，并记录交互次数。
+- 兜底：若完整反馈回路未完成，至少提供一次性阈值筛选（无反馈），并记录差异。
+
+**产出物（仓库内）**
+
+- `baselines/ddfed.py`、`docs/dual_defense_comparison.md`（初稿）
+
+**验收**
+
+- 复现 DDFed 趋势；日志包含交互统计与 clipping 标记。
+
+**结束必须 push**：`git status && git add -A && git commit -m "stage6: add DDFed baseline (two-phase selection + optional clipping) and write initial MAGMA vs DDFed comparison" && git push origin main`
+
+**Commit message 建议**：`stage6: add DDFed baseline (two-phase selection + optional clipping) and write initial MAGMA vs DDFed comparison`
+
+### Step 7（对应 Stage 7）：FHE 模式打通
+
+**目标**
+
+- 主线：`--fhe on/off`，MAGMA 距离与 DDFed 相似度都可切到 FHE mock/backend。
+- 兜底：mock backend 默认返回明文结果，确保 pipeline 不因 FHE 依赖缺失而阻塞。
+
+**产出物（仓库内）**
+
+- `magma/fhe_backend.py`、`configs/fhe.yaml`
+
+**验收**
+
+- `--fhe mock` 与明文结果一致；若接入 TenSEAL，至少小规模跑通 1 个 round。
+
+**结束必须 push**：`git status && git add -A && git commit -m "stage7: add FHE abstraction (mock + optional CKKS backend) for MAGMA distances and DDFed similarities" && git push origin main`
+
+**Commit message 建议**：`stage7: add FHE abstraction (mock + optional CKKS backend) for MAGMA distances and DDFed similarities`
+
+### Step 8（对应 Stage 8）：主实验矩阵
+
+**目标**
+
+- 主线：MNIST/FMNIST/CIFAR10/TinyImageNet × attacks × iid/dirichlet × ratios × seeds，批量跑完。
+- 兜底：若全部组合过重，至少完成 MNIST/FMNIST 全矩阵 + CIFAR10 子集，记录剩余 TODO。
+
+**产出物（仓库内）**
+
+- `scripts/sweep.sh`、`results/summary_table.{csv,json}`
+
+**验收**
+
+- summary 含 `final/min/recovery/FP/FN/time`，并能定位每个 run 的日志。
+
+**结束必须 push**：`git status && git add -A && git commit -m "stage8: run main experiment grid and generate summary tables (accuracy/FPFN/runtime)" && git push origin main`
+
+**Commit message 建议**：`stage8: run main experiment grid and generate summary tables (accuracy/FPFN/runtime)`
+
+### Step 9（对应 Stage 9）：作图与论文落地
+
+**目标**
+
+- 主线：生成 accuracy 曲线、FP/FN/time 表格，并完善 MAGMA vs DDFed 文本。
+- 兜底：若曲线脚本未完全自动化，提供 Notebook/脚本组合手动生成关键图，附命令。
+
+**产出物（仓库内）**
+
+- `scripts/plot_curves.py`、`results/figures/`、`docs/dual_defense_comparison.md`（完整版）
+
+**验收**
+
+- `python scripts/plot_curves.py --input results/summary_table.csv --out results/figures` 成功；图可直接入论文。
+
+**结束必须 push**：`git status && git add -A && git commit -m "stage9: add plotting + finalize MAGMA vs DDFed comparison text and paper-ready figures/tables" && git push origin main`
+
+**Commit message 建议**：`stage9: add plotting + finalize MAGMA vs DDFed comparison text and paper-ready figures/tables`
+
+### Step 10（对应 Stage 10）：消融实验
+
+**目标**
+
+- 主线：跑 λ、层级、heterogeneity 三组消融，解释 MAGMA 行为。
+- 兜底：至少完成 λ 或 heterogeneity 其中一组，并记录其余组的计划。
+
+**产出物（仓库内）**
+
+- `results/ablation/*.csv`、`results/figures/ablation_*.png`、`docs/threat_model_alignment.md`
+
+**验收**
+
+- 提供支撑论文“why/when/conservative”的文字与图表。
+
+**结束必须 push**：`git status && git add -A && git commit -m "stage10: add MAGMA ablations (lambda/layer/heterogeneity) with analysis-ready plots" && git push origin main`
+
+**Commit message 建议**：`stage10: add MAGMA ablations (lambda/layer/heterogeneity) with analysis-ready plots`
+
+### Step 11（对应 Stage 11）：最终复现包
+
+**目标**
+
+- 主线：提供 `REPRODUCE.md` + env（`requirements.txt` 或 `environment.yml`）+ 一键脚本，完整描述数据与命令。
+- 兜底：若一键脚本尚未完善，至少交付逐步复现指南，并列出缺失项。
+
+**产出物（仓库内）**
+
+- `REPRODUCE.md`、`environment.yml`（或 `requirements.txt`）、`scripts/reproduce_main.sh`、`CITATION.bib`
+
+**验收**
+
+- 在全新环境中可按文档跑 MNIST/FMNIST 主结果。
+
+**结束必须 push**：`git status && git add -A && git commit -m "stage11: add full reproduction package (env + one-click scripts + docs)" && git push origin main`
+
+**Commit message 建议**：`stage11: add full reproduction package (env + one-click scripts + docs)`
 
 ---
 
