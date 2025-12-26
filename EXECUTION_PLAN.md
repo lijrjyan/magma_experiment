@@ -141,6 +141,7 @@ git push origin main
 **验收**
 
 - 同 dataset/seed/alpha 下 partition 结果一致；`client_stats.json` 记录 label/样本数量。
+- 真实数据 sanity 证据：`results/stage2_mnist_real/`（MNIST，dirichlet_fixed β=0.5）。
 
 **结束必须 push**：`git status && git add -A && git commit -m "stage2: add dataset loaders + reproducible iid/dirichlet partitioning with client stats" && git push origin main`
 

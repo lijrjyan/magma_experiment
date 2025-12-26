@@ -1,0 +1,13 @@
+{
+  "run_id": "stage2_mnist_real",
+  "config_file": "configs/mnist.yaml",
+  "final_test_acc": null,
+  "best_test_acc": null,
+  "min_test_acc_after_attack": null,
+  "rounds": 0,
+  "dataset": "mnist",
+  "aggregator": "dual_defense",
+  "attack_strategy": "none",
+  "attacker_ratio": 0.0,
+  "seed": 7890
+}
