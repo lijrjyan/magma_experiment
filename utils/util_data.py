@@ -17,7 +17,7 @@ from utils.tinyimagenet import TinyImageNet
 
 from utils.util_sys import create_folder_if_not_exists
 
-from utils.util_logger import logger
+from utils.logging import logger
 
 
 def load_data_cifar10(

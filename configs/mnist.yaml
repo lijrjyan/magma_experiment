@@ -1,0 +1,44 @@
+experiment:
+  name: mnist_fedavg_sanity
+  output_dir: results
+  seed: 7890
+  description: "Stage1 sanity run for MNIST"
+
+data:
+  dataset: mnist
+  dir: ./data
+  partition:
+    type: iid
+    beta: 0.5
+    min_samples_per_client: 100
+    max_samples_per_client: 2000
+  num_clients: 100
+  clients_per_round: 10
+  data_balance_strategy: balanced
+  imbalance_percentage: 0.1
+  plot_partition_stats: false
+
+training:
+  rounds: 5
+  local_epochs: 3
+  batch_size: 64
+  optimizer: sgd
+  learning_rate: 0.01
+  regularization: 1.0e-5
+
+aggregation:
+  method: dual_defense
+  use_fhe: false
+  fake_data_size_multiplier: 10.0
+
+attacks:
+  strategy: none
+  attacker_ratio: 0.0
+  attack_start_round: 50
+  label_flipping_ratio: 0.0
+  ipm_multiplier: 5
+  alie_epsilon: 0.1
+
+logging:
+  tensorboard: true
+  keep_magma_metrics: true

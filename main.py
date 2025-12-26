@@ -77,7 +77,7 @@ if __name__ == "__main__":
     tb_file = filename_core
     os.environ["LOG_FILE_NAME"] = os.path.join(log_dir, log_file)
 
-    from utils.util_logger import setup_tensorboard
+    from utils.logging import setup_tensorboard
 
     config["tensorboard"] = setup_tensorboard(tensorboard_dir, tb_file)
     config["filename_core"] = filename_core

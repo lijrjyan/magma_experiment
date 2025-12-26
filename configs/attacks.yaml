@@ -1,0 +1,16 @@
+# Attack configuration catalog (Stage 1 placeholder)
+attacks:
+  none:
+    description: "No adversarial manipulation"
+  model_poisoning_ipm:
+    description: "Iterative parameter multiplication"
+    params:
+      multiplier: 5
+  model_poisoning_scaling:
+    description: "Sample-size scaling attack"
+    params:
+      fake_data_size_multiplier: 10.0
+  model_poisoning_alie:
+    description: "ALIE attack"
+    params:
+      epsilon: 0.1

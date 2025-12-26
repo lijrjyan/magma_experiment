@@ -1,0 +1,11 @@
+# Aggregator configuration catalog (Stage 1 placeholder)
+aggregators:
+  fedavg:
+    module: baselines.fedavg
+    notes: "Plain data-size weighted averaging baseline"
+  dual_defense:
+    module: baselines.ddfed
+    notes: "Two-phase similarity defense (current default)"
+  magma:
+    module: baselines.magma
+    notes: "Placeholder for MAGMA geometric defense"

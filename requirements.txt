@@ -9,3 +9,4 @@ adjustText
 scikit-learn>=1.0.0
 umap-learn>=0.5.0
 matplotlib>=3.5.0
+PyYAML>=6.0

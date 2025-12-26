@@ -2,7 +2,7 @@ import os
 
 import torch
 
-from utils.util_logger import logger
+from utils.logging import logger
 
 
 def get_available_device(device: str = None) -> torch.device:

@@ -28,7 +28,7 @@ from utils.util_model import (
 from utils.util_sys import wrap_torch_median
 from utils.util_sys import wrap_torch_sort
 
-from utils.util_logger import logger
+from utils.logging import logger
 
 warnings.filterwarnings("ignore", category=UserWarning, module="tenseal")
 

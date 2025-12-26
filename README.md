@@ -28,6 +28,26 @@ pip install -r requirements.txt
 ### Usage
 To run the experiments, refer to `run_test.sh` for a sample script.
 
+### Stage 1 Orchestration (MAGMA Execution Plan)
+
+The repository now follows the MAGMA execution plan described in
+`EXECUTION_PLAN.md`. Stage 1 introduces a unified experiment entry point
+that locks down logging and result artifacts. Every run is initiated via:
+
+```
+python scripts/run_exp.py --config configs/mnist.yaml \
+    --run-name mnist_sanity --override training.rounds=3
+```
+
+- All outputs live under `results/<run_id>/`.
+- Round-level metrics stream into `results/<run_id>/artifacts/metrics.jsonl`.
+- Summary statistics are saved to `summary.json`, and the resolved config
+  for auditability is stored alongside it.
+
+The legacy `main.py` entry point remains available, but new experiments
+should go through `scripts/run_exp.py` to stay compliant with the
+per-stage commit/push policy.
+
 ## Citation
 If you find this repository useful in your research, please consider citing our work:
 

@@ -34,7 +34,7 @@ from utils.util_fusion import (
     fusion_dendro_defense,
     fusion_dual_defense,
 )
-from utils.util_logger import logger
+from utils.logging import logger
 
 def set_seed(seed):
     torch.manual_seed(seed)
