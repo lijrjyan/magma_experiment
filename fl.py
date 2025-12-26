@@ -16,11 +16,6 @@ import torch.utils.data as data
 from utils.util_sys import get_available_device, intersection_of_lists
 from utils.util_data import get_client_data_loader
 from utils.util_model import get_client_model
-from utils.util_model import (
-    ipm_attack_craft_model,
-    scaling_attack,
-    alie_attack,
-)
 from utils.util_model import get_server_model
 from utils.util_fusion import (
     fusion_avg,
@@ -34,6 +29,7 @@ from utils.util_fusion import (
     fusion_dual_defense,
 )
 from utils.logging import logger
+from attacks import AttackContext, build_attack
 
 def set_seed(seed):
     torch.manual_seed(seed)
@@ -88,11 +84,19 @@ class SimulationFL(ABC):
         # Sample-based scaling attack parameters
         # default to 10 times of the original datasize
         self.fake_data_size_multiplier = config.get("fake_data_size_multiplier", 10.0)
-        # 存储恶意客户端伪造的数据大小
-        self.fake_data_sizes = {}
         
         # Label flipping attack parameters
         self.label_flipping_ratio = config.get("label_flipping_ratio", 0.5)
+
+        # Attack factory cache (per-strategy)
+        self._attack_config = {
+            "attack_start_round": self.attack_start_round,
+            "ipm_multiplier": self.ipm_multiplier,
+            "alie_epsilon": self.alie_epsilon,
+            "label_flipping_ratio": self.label_flipping_ratio,
+            "fake_data_size_multiplier": self.fake_data_size_multiplier,
+        }
+        self._attack_cache = {}
         
         # control use FHE or not
         self.use_fhe = config.get("use_fhe", False)
@@ -248,6 +252,11 @@ class SimulationFL(ABC):
             self.attacker_list = []
             logger.info("No attackers selected")
 
+    def _get_attack(self, strategy: str):
+        if strategy not in self._attack_cache:
+            self._attack_cache[strategy] = build_attack(strategy, self._attack_config)
+        return self._attack_cache[strategy]
+
     def init_device(self) -> None:
         self.device = get_available_device()
 
@@ -385,17 +394,15 @@ class SimulationFL(ABC):
         criterion = nn.CrossEntropyLoss().to(self.device)
         optimizer = self.get_optimizer(model)
 
-        # 检查是否是执行label flipping攻击的客户端
-        is_label_flipping_attacker = (
-            client_id in self.attacker_list
-            and round_idx >= self.attack_start_round
-            and (
-                self.attacker_strategy == "model_poisoning_scaling" or
-                (hasattr(self, 'attacker_strategy_map') and 
-                 client_id in self.attacker_strategy_map and 
-                 self.attacker_strategy_map[client_id] == "model_poisoning_scaling")
-            )
-        )
+        is_attacker_active = client_id in self.attacker_list and round_idx >= self.attack_start_round
+        attack_strategy = None
+        attack = self._get_attack("none")
+        if is_attacker_active:
+            attack_strategy = self.attacker_strategy
+            if hasattr(self, "attacker_strategy_map") and client_id in self.attacker_strategy_map:
+                attack_strategy = self.attacker_strategy_map[client_id]
+            attack = self._get_attack(attack_strategy)
+        attack_context = AttackContext(dataset=self.dataset, round_idx=round_idx, client_id=client_id)
 
         for _epoch in range(self.local_epochs):
             train_loss_lst = []
@@ -408,39 +415,8 @@ class SimulationFL(ABC):
             for _batch_idx, (_data, _target) in enumerate(train_data_loader):
                 data, target = _data.to(self.device), _target.to(self.device)
                 
-                # 如果是执行label flipping的攻击者，执行label flipping攻击
-                if is_label_flipping_attacker:
-                    # 随机选择一定比例的样本进行标签翻转
-                    batch_size = target.size(0)
-                    flip_indices = torch.rand(batch_size, device=self.device) < self.label_flipping_ratio
-                    
-                    if flip_indices.any():
-                        # 获取数据集的类别数量
-                        if self.dataset == "mnist" or self.dataset == "fmnist":
-                            num_classes = 10
-                        elif self.dataset == "cifar10" or self.dataset == "svhn":
-                            num_classes = 10
-                        elif self.dataset == "emnist_byclass":
-                            num_classes = 62
-                        elif self.dataset == "emnist_bymerge":
-                            num_classes = 47
-                        elif self.dataset == "tinyimagenet":
-                            num_classes = 200
-                        else:
-                            num_classes = 10  # 默认值
-                        
-                        # 对选中的样本进行标签翻转
-                        # 将标签随机翻转为另一个类别
-                        flipped_labels = torch.randint(0, num_classes - 1, size=(flip_indices.sum(),), device=self.device)
-                        # 确保翻转后的标签与原标签不同
-                        for i, orig_label in enumerate(target[flip_indices]):
-                            if flipped_labels[i] >= orig_label:
-                                flipped_labels[i] += 1
-                        
-                        # 应用翻转的标签
-                        target_copy = target.clone()
-                        target_copy[flip_indices] = flipped_labels
-                        target = target_copy
+                if is_attacker_active:
+                    target = attack.poison_labels(target, context=attack_context)
 
                 optimizer.zero_grad()
                 output = model(data)
@@ -456,85 +432,22 @@ class SimulationFL(ABC):
             epoch_train_acc = epoch_correct / epoch_total * 100
             epoch_avg_loss = np.mean(train_loss_lst)
 
-        if (
-            client_id in self.attacker_list
-            and round_idx >= self.attack_start_round
-        ):
-            # Determine the attack strategy for this client
-            attack_strategy = self.attacker_strategy
-            if hasattr(self, 'attacker_strategy_map') and client_id in self.attacker_strategy_map:
-                attack_strategy = self.attacker_strategy_map[client_id]
-            
-            # Execute the appropriate attack based on the strategy
-            if attack_strategy == "model_poisoning_ipm":
-                logger.info(f"client {client_id} is attacker, start poisoning model with IPM attack")
-                crafted_model = ipm_attack_craft_model(
-                    self.server_model.to(self.device), model.to(self.device), 
-                    multiplier=self.ipm_multiplier
-                )
-                _, _test_acc = self.model_evaluate(
-                    crafted_model, test_data_loader, criterion
-                )
-                _train_loss, _train_acc = self.model_evaluate(
-                    crafted_model, train_data_loader, criterion
-                )
-                return crafted_model, {
-                    "train_loss": _train_loss,
-                    "train_acc": _train_acc,
-                    "test_acc": _test_acc,
-                }
-            elif attack_strategy == "model_poisoning_scaling":
-                logger.info(f"client {client_id} is attacker, start sample-based scaling attack")
-                # 不修改模型参数，只返回正常训练后的模型
-                # 实际的攻击在aggregate_model中通过谎报数据大小实现
-                
-                # 记录真实的数据大小，以便在aggregate_model中使用
-                real_data_size = len(train_data_loader.dataset)
-                # 计算伪造的数据大小（默认为真实大小的10倍）
-                fake_data_size = int(real_data_size * self.fake_data_size_multiplier)
-                # 存储伪造的数据大小，以便在aggregate_model中使用
-                self.fake_data_sizes[client_id] = fake_data_size
-                
-                logger.info(f"Client {client_id} real data size: {real_data_size}, fake data size: {fake_data_size}")
-                
-                _test_loss, _test_acc = self.model_evaluate(
-                    model, test_data_loader, criterion
-                )
-                _train_loss, _train_acc = self.model_evaluate(
-                    model, train_data_loader, criterion
-                )
-                return model, {
-                    "train_loss": _train_loss,
-                    "train_acc": _train_acc,
-                    "test_acc": _test_acc,
-                }
-            elif attack_strategy == "model_poisoning_alie":
-                logger.info(f"client {client_id} is attacker, start poisoning model with ALIE attack")
-                crafted_model = alie_attack(model.to(self.device), epsilon=self.alie_epsilon)
-                _, _test_acc = self.model_evaluate(
-                    crafted_model, test_data_loader, criterion
-                )
-                _train_loss, _train_acc = self.model_evaluate(
-                    crafted_model, train_data_loader, criterion
-                )
-                return crafted_model, {
-                    "train_loss": _train_loss,
-                    "train_acc": _train_acc,
-                    "test_acc": _test_acc,
-                }
-        else:
-            # Normal client behavior
-            _test_loss, _test_acc = self.model_evaluate(
-                model, test_data_loader, criterion
+        if is_attacker_active:
+            logger.info(
+                "client %s is attacker (strategy=%s params=%s)",
+                client_id,
+                attack_strategy,
+                attack.params(),
             )
-            _train_loss, _train_acc = self.model_evaluate(
-                model, train_data_loader, criterion
-            )
-            return model, {
-                "train_loss": _train_loss,
-                "train_acc": _train_acc,
-                "test_acc": _test_acc,
-            }
+            model = attack.poison_model(self.server_model.to(self.device), model.to(self.device), context=attack_context)
+
+        _test_loss, _test_acc = self.model_evaluate(model, test_data_loader, criterion)
+        _train_loss, _train_acc = self.model_evaluate(model, train_data_loader, criterion)
+        return model, {
+            "train_loss": _train_loss,
+            "train_acc": _train_acc,
+            "test_acc": _test_acc,
+        }
 
     def _batch_records_debug(
         self,
@@ -699,7 +612,7 @@ class SimulationFL(ABC):
 
         # 获取真实的数据大小
         real_data_sizes = {
-            p_id: sum(len(batch[0]) for batch in self.client_data_loader[p_id][0])
+            p_id: len(self.client_data_loader[p_id][0].dataset)
             for p_id in self.round_client_list[round_idx]
         }
         
@@ -718,13 +631,20 @@ class SimulationFL(ABC):
                 attack_strategy = self.attacker_strategy
                 if hasattr(self, 'attacker_strategy_map') and attacker_id in self.attacker_strategy_map:
                     attack_strategy = self.attacker_strategy_map[attacker_id]
-                
-                # 如果是scaling攻击，使用伪造的数据大小
-                if attack_strategy == "model_poisoning_scaling" and attacker_id in self.fake_data_sizes:
-                    fake_size = self.fake_data_sizes[attacker_id]
-                    real_size = real_data_sizes[attacker_id]
-                    data_sizes[attacker_id] = fake_size
-                    logger.info(f"Attacker {attacker_id} (using {attack_strategy}) reporting fake data size: {fake_size} (real: {real_size})")
+
+                attack = self._get_attack(attack_strategy)
+                ctx = AttackContext(dataset=self.dataset, round_idx=round_idx, client_id=attacker_id)
+                real_size = real_data_sizes[attacker_id]
+                reported_size = attack.report_data_size(real_size, context=ctx)
+                if reported_size != real_size:
+                    data_sizes[attacker_id] = reported_size
+                    logger.info(
+                        "Attacker %s (strategy=%s) reporting fake data size: %s (real: %s)",
+                        attacker_id,
+                        attack_strategy,
+                        reported_size,
+                        real_size,
+                    )
             
             # 记录不同攻击类型的统计信息
             if hasattr(self, 'attacker_strategy_map') and attackers_in_round:

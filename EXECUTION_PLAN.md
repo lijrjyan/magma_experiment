@@ -151,7 +151,7 @@ git push origin main
 
 **Commit message 建议**：`stage2: add dataset loaders + reproducible iid/dirichlet partitioning with client stats`
 
-### Step 3（对应 Stage 3）：攻击实现（IPM / ALIE / Scaling / Label Flip）
+### Step 3（对应 Stage 3）：攻击实现（IPM / ALIE / Scaling / Label Flip） ✅（已完成）
 
 **目标**
 
@@ -165,6 +165,8 @@ git push origin main
 **验收**
 
 - 手动触发单轮攻击能让 FedAvg accuracy 明显下降，并记录攻击参数。
+- 攻击 sanity 证据：
+  - `results/stage3_mnist_fedavg_ipm/`（MNIST + FedAvg + IPM，attack_start_round=2，ipm_multiplier=10）
 
 **结束必须 push**：`git status && git add -A && git commit -m "stage3: implement poisoning attacks (ipm/alie/scaling/label-flip) with unified interfaces" && git push origin main`
 

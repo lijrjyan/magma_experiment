@@ -134,7 +134,10 @@ def compose_simulation_config(
         "plot_partition_stats": bool(data_cfg.get("plot_partition_stats", False)),
         "min_samples_per_client": partition_cfg.get("min_samples_per_client", 100),
         "max_samples_per_client": partition_cfg.get("max_samples_per_client", 2000),
-        "fake_data_size_multiplier": agg_cfg.get("fake_data_size_multiplier", 10.0),
+        "fake_data_size_multiplier": attack_cfg.get(
+            "fake_data_size_multiplier",
+            agg_cfg.get("fake_data_size_multiplier", 10.0),
+        ),
     }
     sim_config["filename_core"] = run_id
     sim_config["results_dir"] = str(log_dir.parent)
@@ -179,6 +182,11 @@ def summarize_run(
         "aggregator": sim_config.get("fusion"),
         "attack_strategy": sim_config.get("attacker_strategy"),
         "attacker_ratio": sim_config.get("attacker_ratio"),
+        "attack_start_round": sim_config.get("attack_start_round"),
+        "ipm_multiplier": sim_config.get("ipm_multiplier"),
+        "alie_epsilon": sim_config.get("alie_epsilon"),
+        "label_flipping_ratio": sim_config.get("label_flipping_ratio"),
+        "fake_data_size_multiplier": sim_config.get("fake_data_size_multiplier"),
         "seed": sim_config.get("seed"),
     }
     with summary_path.open("w", encoding="utf-8") as handle:

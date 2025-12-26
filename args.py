@@ -139,6 +139,7 @@ def args_parser():
             "model_poisoning_ipm",
             "model_poisoning_scaling",
             "model_poisoning_alie",
+            "data_poisoning_label_flip",
             "multi_attack_ipm+scaling",
             "multi_attack_ipm+alie",
             "multi_attack_scaling+alie",

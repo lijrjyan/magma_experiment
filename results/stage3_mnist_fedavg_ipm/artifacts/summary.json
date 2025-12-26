@@ -1,0 +1,18 @@
+{
+  "run_id": "stage3_mnist_fedavg_ipm",
+  "config_file": "configs/mnist.yaml",
+  "final_test_acc": 10.1,
+  "best_test_acc": 46.53,
+  "min_test_acc_after_attack": 10.1,
+  "rounds": 5,
+  "dataset": "mnist",
+  "aggregator": "fedavg",
+  "attack_strategy": "model_poisoning_ipm",
+  "attacker_ratio": 0.3,
+  "attack_start_round": 2,
+  "ipm_multiplier": 10,
+  "alie_epsilon": 0.1,
+  "label_flipping_ratio": 0.0,
+  "fake_data_size_multiplier": 10.0,
+  "seed": 7890
+}
