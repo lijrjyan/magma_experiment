@@ -63,6 +63,30 @@ Notes:
 
 ![Stage4 TinyImageNet curves](docs/figures/stage4_tinyimagenet_curves.png)
 
+## Stage4 results (MNIST, IID, seed=7890, rounds=50, local_epochs=1)
+
+| run_id | aggregator | attack | final_test_acc | best_test_acc | min_test_acc_after_attack |
+| --- | --- | --- | ---: | ---: | ---: |
+| `stage4_mnist_fedavg_50r_20251226-202532` | `fedavg` | `none` | 96.03 | 96.03 |  |
+
+![Stage4 MNIST FedAvg 50 rounds](docs/figures/stage4_mnist_fedavg_50r.png)
+
+## Stage4 results (FMNIST, IID, seed=7890, rounds=50, local_epochs=1)
+
+| run_id | aggregator | attack | final_test_acc | best_test_acc | min_test_acc_after_attack |
+| --- | --- | --- | ---: | ---: | ---: |
+| `stage4_fmnist_fedavg_50r_20251226-202601` | `fedavg` | `none` | 77.45 | 77.76 |  |
+
+![Stage4 FMNIST FedAvg 50 rounds](docs/figures/stage4_fmnist_fedavg_50r.png)
+
+## Stage4 results (CIFAR10, IID, seed=7890, rounds=50, local_epochs=1)
+
+| run_id | aggregator | attack | final_test_acc | best_test_acc | min_test_acc_after_attack |
+| --- | --- | --- | ---: | ---: | ---: |
+| `stage4_cifar10_fedavg_50r` | `fedavg` | `none` | 64.58 | 64.89 |  |
+
+![Stage4 CIFAR10 FedAvg 50 rounds](docs/figures/stage4_cifar10_fedavg_50r.png)
+
 ## Plot regeneration
 
 From `magma_experiment/`:
@@ -72,4 +96,8 @@ python scripts/plot_stage4_curves.py --dataset mnist
 python scripts/plot_stage4_curves.py --dataset fmnist
 python scripts/plot_stage4_curves.py --dataset cifar10
 python scripts/plot_stage4_curves.py --dataset tinyimagenet
+
+python scripts/plot_run_curve.py --run-id stage4_mnist_fedavg_50r_20251226-202532 --out docs/figures/stage4_mnist_fedavg_50r.png
+python scripts/plot_run_curve.py --run-id stage4_fmnist_fedavg_50r_20251226-202601 --out docs/figures/stage4_fmnist_fedavg_50r.png
+python scripts/plot_run_curve.py --run-id stage4_cifar10_fedavg_50r --out docs/figures/stage4_cifar10_fedavg_50r.png
 ```
