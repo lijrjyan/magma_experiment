@@ -135,6 +135,38 @@ Notes:
 
 ![Stage4 FMNIST FedAvg rounds=50 local_epochs=5](docs/figures/stage4_fmnist_fedavg_e5_r50_20251227-004135_curve.png)
 
+## Stage4 results (CIFAR10, IID, seed=7890, rounds=50, local_epochs=5)
+
+| run_id | aggregator | attack | final_test_acc | best_test_acc | min_test_acc_after_attack |
+| --- | --- | --- | ---: | ---: | ---: |
+| `stage4_cifar10_fedavg_e5_r50_20251227-025946` | `fedavg` | `none` | 83.51 | 83.51 |  |
+
+![Stage4 CIFAR10 FedAvg rounds=50 local_epochs=5](docs/figures/stage4_cifar10_fedavg_e5_r50_20251227-025946_curve.png)
+
+## Stage4 results (MNIST, IID, seed=7890, rounds=100, local_epochs=5)
+
+| run_id | aggregator | attack | final_test_acc | best_test_acc | min_test_acc_after_attack |
+| --- | --- | --- | ---: | ---: | ---: |
+| `stage4_mnist_fedavg_e5_r100_20251227-072441` | `fedavg` | `none` | 99.08 | 99.16 |  |
+
+![Stage4 MNIST FedAvg rounds=100 local_epochs=5](docs/figures/stage4_mnist_fedavg_e5_r100_20251227-072441_curve.png)
+
+## Stage4 results (FMNIST, IID, seed=7890, rounds=100, local_epochs=5)
+
+| run_id | aggregator | attack | final_test_acc | best_test_acc | min_test_acc_after_attack |
+| --- | --- | --- | ---: | ---: | ---: |
+| `stage4_fmnist_fedavg_e5_r100_20251227-072037` | `fedavg` | `none` | 89.36 | 89.54 |  |
+
+![Stage4 FMNIST FedAvg rounds=100 local_epochs=5](docs/figures/stage4_fmnist_fedavg_e5_r100_20251227-072037_curve.png)
+
+## Stage4 results (CIFAR10, IID, seed=7890, rounds=100, local_epochs=5)
+
+| run_id | aggregator | attack | final_test_acc | best_test_acc | min_test_acc_after_attack |
+| --- | --- | --- | ---: | ---: | ---: |
+| `stage4_cifar10_fedavg_e5_r100_20251227-072522` | `fedavg` | `none` | 87.40 | 88.01 |  |
+
+![Stage4 CIFAR10 FedAvg rounds=100 local_epochs=5](docs/figures/stage4_cifar10_fedavg_e5_r100_20251227-072522_curve.png)
+
 ## Plot regeneration
 
 From `magma_experiment/`:
@@ -156,4 +188,9 @@ python scripts/plot_run_curve.py --run-id stage4_cifar10_fedavg_e5_20251226-2140
 
 python scripts/plot_run_curve.py --run-id stage4_mnist_fedavg_e5_r50_20251227-004124 --out docs/figures/stage4_mnist_fedavg_e5_r50_20251227-004124_curve.png
 python scripts/plot_run_curve.py --run-id stage4_fmnist_fedavg_e5_r50_20251227-004135 --out docs/figures/stage4_fmnist_fedavg_e5_r50_20251227-004135_curve.png
+python scripts/plot_run_curve.py --run-id stage4_cifar10_fedavg_e5_r50_20251227-025946 --out docs/figures/stage4_cifar10_fedavg_e5_r50_20251227-025946_curve.png
+
+python scripts/plot_run_curve.py --run-id stage4_mnist_fedavg_e5_r100_20251227-072441 --out docs/figures/stage4_mnist_fedavg_e5_r100_20251227-072441_curve.png
+python scripts/plot_run_curve.py --run-id stage4_fmnist_fedavg_e5_r100_20251227-072037 --out docs/figures/stage4_fmnist_fedavg_e5_r100_20251227-072037_curve.png
+python scripts/plot_run_curve.py --run-id stage4_cifar10_fedavg_e5_r100_20251227-072522 --out docs/figures/stage4_cifar10_fedavg_e5_r100_20251227-072522_curve.png
 ```
