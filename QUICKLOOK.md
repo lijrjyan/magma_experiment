@@ -87,6 +87,38 @@ Notes:
 
 ![Stage4 CIFAR10 FedAvg 50 rounds](docs/figures/stage4_cifar10_fedavg_50r.png)
 
+## Stage4 results (TinyImageNet, IID, seed=7890, rounds=50, local_epochs=1)
+
+| run_id | aggregator | attack | final_test_acc | best_test_acc | min_test_acc_after_attack |
+| --- | --- | --- | ---: | ---: | ---: |
+| `stage4_tinyimagenet_fedavg_50r` | `fedavg` | `none` | 21.12 | 21.12 |  |
+
+![Stage4 TinyImageNet FedAvg 50 rounds](docs/figures/stage4_tinyimagenet_fedavg_50r.png)
+
+## Stage4 results (MNIST, IID, seed=7890, rounds=5, local_epochs=5)
+
+| run_id | aggregator | attack | final_test_acc | best_test_acc | min_test_acc_after_attack |
+| --- | --- | --- | ---: | ---: | ---: |
+| `stage4_mnist_fedavg_e5_20251226-213946` | `fedavg` | `none` | 95.32 | 95.32 |  |
+
+![Stage4 MNIST FedAvg local_epochs=5](docs/figures/stage4_mnist_fedavg_e5_20251226-213946_curve.png)
+
+## Stage4 results (FMNIST, IID, seed=7890, rounds=5, local_epochs=5)
+
+| run_id | aggregator | attack | final_test_acc | best_test_acc | min_test_acc_after_attack |
+| --- | --- | --- | ---: | ---: | ---: |
+| `stage4_fmnist_fedavg_e5_20251226-214002` | `fedavg` | `none` | 76.32 | 76.32 |  |
+
+![Stage4 FMNIST FedAvg local_epochs=5](docs/figures/stage4_fmnist_fedavg_e5_20251226-214002_curve.png)
+
+## Stage4 results (CIFAR10, IID, seed=7890, rounds=5, local_epochs=5)
+
+| run_id | aggregator | attack | final_test_acc | best_test_acc | min_test_acc_after_attack |
+| --- | --- | --- | ---: | ---: | ---: |
+| `stage4_cifar10_fedavg_e5_20251226-214009` | `fedavg` | `none` | 52.78 | 52.78 |  |
+
+![Stage4 CIFAR10 FedAvg local_epochs=5](docs/figures/stage4_cifar10_fedavg_e5_20251226-214009_curve.png)
+
 ## Plot regeneration
 
 From `magma_experiment/`:
@@ -100,4 +132,9 @@ python scripts/plot_stage4_curves.py --dataset tinyimagenet
 python scripts/plot_run_curve.py --run-id stage4_mnist_fedavg_50r_20251226-202532 --out docs/figures/stage4_mnist_fedavg_50r.png
 python scripts/plot_run_curve.py --run-id stage4_fmnist_fedavg_50r_20251226-202601 --out docs/figures/stage4_fmnist_fedavg_50r.png
 python scripts/plot_run_curve.py --run-id stage4_cifar10_fedavg_50r --out docs/figures/stage4_cifar10_fedavg_50r.png
+python scripts/plot_run_curve.py --run-id stage4_tinyimagenet_fedavg_50r --out docs/figures/stage4_tinyimagenet_fedavg_50r.png
+
+python scripts/plot_run_curve.py --run-id stage4_mnist_fedavg_e5_20251226-213946 --out docs/figures/stage4_mnist_fedavg_e5_20251226-213946_curve.png
+python scripts/plot_run_curve.py --run-id stage4_fmnist_fedavg_e5_20251226-214002 --out docs/figures/stage4_fmnist_fedavg_e5_20251226-214002_curve.png
+python scripts/plot_run_curve.py --run-id stage4_cifar10_fedavg_e5_20251226-214009 --out docs/figures/stage4_cifar10_fedavg_e5_20251226-214009_curve.png
 ```
