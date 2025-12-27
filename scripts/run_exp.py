@@ -99,6 +99,7 @@ def compose_simulation_config(
     agg_cfg = config.get("aggregation", {})
     experiment_cfg = config.get("experiment", {})
     runtime_cfg = config.get("runtime", {})
+    logging_cfg = config.get("logging", {})
 
     sim_config = {
         "num_clients": data_cfg.get("num_clients", 100),
@@ -134,7 +135,9 @@ def compose_simulation_config(
         "data_balance_strategy": data_cfg.get("data_balance_strategy", "balanced"),
         "imbalance_percentage": data_cfg.get("imbalance_percentage", 0.1),
         "use_fhe": bool(agg_cfg.get("use_fhe", False)),
+        "magma_jump_ratio_threshold": float(agg_cfg.get("magma_jump_ratio_threshold", 1.5)),
         "log_dir": str(log_dir),
+        "keep_magma_metrics": bool(logging_cfg.get("keep_magma_metrics", False)),
         "plot_partition_stats": bool(data_cfg.get("plot_partition_stats", False)),
         "min_samples_per_client": partition_cfg.get("min_samples_per_client", 100),
         "max_samples_per_client": partition_cfg.get("max_samples_per_client", 2000),

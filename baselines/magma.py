@@ -1,4 +1,4 @@
-"""MAGMA aggregator wrapper (Stage 1 placeholder)."""
+"""MAGMA aggregation wrapper (Stage 5)."""
 
 from typing import Dict, Iterable, Tuple, Optional
 

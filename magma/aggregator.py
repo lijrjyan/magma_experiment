@@ -1,12 +1,6 @@
-"""MAGMA aggregator placeholder.
+"""MAGMA plaintext aggregation wrapper (Stage 5)."""
 
-Later stages will integrate the manifold-aware clustering pipeline.
-For Stage 1 we merely define a placeholder that documents the expected
-interface so that downstream tooling (scripts/run_exp.py, configs, etc.)
-can reference MAGMA as an aggregator choice.
-"""
-
-from typing import Dict, Tuple, Any, Iterable, Optional
+from typing import Dict, Tuple, Iterable, Optional
 
 import torch
 
@@ -21,17 +15,10 @@ def aggregate(
     log_dir: str,
     attacker_list: Optional[Iterable[int]] = None,
 ) -> Tuple[Dict[str, torch.Tensor], Iterable[int]]:
-    """Placeholder MAGMA aggregator.
-
-    The function currently falls back to the existing dendrogram-based
-    defense (``fusion_dendro_defense``) to stay aligned with the Dual
-    Defense baseline that ships with the repository. This keeps the
-    experiment pipeline runnable in Stage 1 while we re-architect the
-    codebase around the MAGMA execution plan.
-    """
+    """Aggregate client updates using MAGMA (Ward + jump ratio)."""
     from utils.util_fusion import fusion_dendro_defense
 
-    params, benigns = fusion_dendro_defense(
+    params, benigns, _magma_info = fusion_dendro_defense(
         global_model,
         model_updates,
         data_size,

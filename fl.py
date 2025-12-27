@@ -112,6 +112,8 @@ class SimulationFL(ABC):
         
         # control use FHE or not
         self.use_fhe = config.get("use_fhe", False)
+        self.keep_magma_metrics = bool(config.get("keep_magma_metrics", False))
+        self.magma_jump_ratio_threshold = float(config.get("magma_jump_ratio_threshold", 1.5))
 
         self.metrics = {}
         self.tensorboard = config.get("tensorboard", None)
@@ -791,8 +793,8 @@ class SimulationFL(ABC):
             
             return fused_params
             
-        elif self.fusion == "dendro_defense":
-            logger.info("start dendro-defense fusion")
+        elif self.fusion == "dendro_defense" or self.fusion == "magma":
+            logger.info("start MAGMA (dendrogram jump-ratio) fusion")
             lst_round_attackers = intersection_of_lists(
                 list(model_updates.keys()), self.attacker_list
             )
@@ -800,7 +802,7 @@ class SimulationFL(ABC):
             
             # 对于dendro_defense，我们也使用伪造的数据大小
             # 这样可以测试防御机制是否能够检测到异常
-            fused_params, benigns = fusion_dendro_defense(
+            fused_params, benigns, magma_info = fusion_dendro_defense(
                 self.server_model,
                 model_updates,
                 data_sizes,
@@ -808,6 +810,7 @@ class SimulationFL(ABC):
                 log_dir=os.path.join(self.log_dir, self.filename_core),
                 attacker_list=self.attacker_list,
                 use_fhe=self.use_fhe,
+                jump_ratio_threshold=self.magma_jump_ratio_threshold,
                 gradient_collector=None,
             )
             # ---------- calculate FN / FP rate ----------
@@ -847,8 +850,21 @@ class SimulationFL(ABC):
 
             # TensorBoard
             if self.tensorboard is not None:
-                self.tensorboard.add_scalar("DualDefense/FN_rate", fn_rate, round_idx)
-                self.tensorboard.add_scalar("DualDefense/FP_rate", fp_rate, round_idx)
+                self.tensorboard.add_scalar("MAGMA/FN_rate", fn_rate, round_idx)
+                self.tensorboard.add_scalar("MAGMA/FP_rate", fp_rate, round_idx)
+
+            if self.keep_magma_metrics and round_idx in self.metrics:
+                magma_record = dict(magma_info or {})
+                magma_record.update(
+                    {
+                        "fp": int(fp),
+                        "fp_rate": float(fp_rate),
+                        "fn": int(fn),
+                        "fn_rate": float(fn_rate),
+                        "kept_clients": list(benigns),
+                    }
+                )
+                self.metrics[round_idx]["server"]["magma"] = magma_record
             
             return fused_params
         else:

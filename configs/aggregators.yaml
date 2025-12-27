@@ -37,6 +37,11 @@ aggregator_presets:
     use_fhe: false
     cos_similarity_threshold: null
 
+  magma:
+    method: magma
+    use_fhe: false
+    magma_jump_ratio_threshold: 1.5
+
 # Default block (for easy copy/paste into dataset configs)
 aggregation:
   method: fedavg
@@ -45,3 +50,4 @@ aggregation:
   trimmed_ratio: 0.1
   clipping_threshold: 0.1
   cos_similarity_threshold: null
+  magma_jump_ratio_threshold: 1.5

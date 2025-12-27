@@ -686,8 +686,9 @@ def fusion_dendro_defense(
     log_dir: str,
     attacker_list: list,
     use_fhe: bool = True,
+    jump_ratio_threshold: float = 1.5,
     gradient_collector: Optional[Dict] = None,
-) -> Tuple[Dict[str, torch.Tensor], list]:
+) -> Tuple[Dict[str, torch.Tensor], list, Dict[str, Any]]:
     """
     An advanced, unified defense mechanism with robust geometry-based filtering.
     Features:
@@ -703,11 +704,14 @@ def fusion_dendro_defense(
         log_dir: The directory for logging
         attacker_list: List of attacker client IDs
         use_fhe: Whether to use Homomorphic Encryption (default: True)
+        jump_ratio_threshold: Threshold for deciding if a "significant" jump exists.
         gradient_collector: Optional dictionary for collecting gradient data for visualization
         
     Returns:
-        Tuple of (fused model parameters, list of benign clients)
+        Tuple of (fused model parameters, list of benign clients, magma metrics dict)
     """
+    os.makedirs(log_dir, exist_ok=True)
+
     # 步骤 1: 提取模型更新的最后一层参数 (两个模式共用)
     global_last_layer = list(global_model.state_dict().values())[-2].view(-1)
     last_layers = {
@@ -719,6 +723,25 @@ def fusion_dendro_defense(
     n_clients = len(client_ids)
     distance_matrix = np.zeros((n_clients, n_clients))
     encrypted_updates = {}
+    magma_metrics: Dict[str, Any] = {
+        "round": int(_round_idx),
+        "n_clients": int(n_clients),
+        "use_fhe": bool(use_fhe),
+        "jump_ratio_threshold": float(jump_ratio_threshold),
+        "linkage_heights": [],
+        "jump_ratios": [],
+        "max_jump_ratio": None,
+        "k_star_merge_idx": None,
+        "k_star_merge_idx_1based": None,
+        "threshold_distance": None,
+        "cluster_labels": None,
+        "num_clusters": None,
+        "largest_cluster_label": None,
+        "kept_clients": [],
+        "rejected_clients": [],
+        "decision": None,
+        "error": None,
+    }
 
     # ==================== 步骤 2: 构建距离矩阵 (根据模式选择不同方法) ====================
     if use_fhe:
@@ -799,46 +822,58 @@ def fusion_dendro_defense(
             
             # 获取所有合并距离并按降序排列
             merge_distances = Z[:, 2]
+            linkage_heights = merge_distances.tolist()
+            magma_metrics["linkage_heights"] = linkage_heights
             
-            # 新方法：从最小距离开始检查，识别第一个显著跳跃
-            # 按从小到大排序合并距离（linkage Z矩阵中的距离是按照合并过程的顺序排列的）
-            sorted_merge_distances = sorted(merge_distances)
-            logger.info(f"Sorted merge distances from smallest to largest: {sorted_merge_distances}")
-            
-            # 设置显著跳跃的比率阈值
-            JUMP_RATIO_THRESHOLD = 1.5
-            
-            # 初始化变量
-            significant_jump_idx = None
-            significant_jump_ratio = 0
-            
-            # 从最小距离开始检查相邻距离的比率
-            for i in range(len(sorted_merge_distances) - 1):
-                if sorted_merge_distances[i] < 1e-9:  # 防止除零
+            # Jump ratio r_k = h_{k+1}/h_k over successive linkage heights.
+            jump_ratios = []
+            jump_ratio_indices = []
+            for i in range(len(linkage_heights) - 1):
+                denom = linkage_heights[i]
+                if denom < 1e-9:
                     continue
-                
-                # 计算下一个距离与当前距离的比率
-                ratio = sorted_merge_distances[i+1] / sorted_merge_distances[i]
-                logger.info(f"Distance jump check: {sorted_merge_distances[i]:.4f} -> {sorted_merge_distances[i+1]:.4f}, ratio: {ratio:.4f}")
-                
-                # 如果发现比率超过阈值，记录跳跃点并停止
-                if ratio > JUMP_RATIO_THRESHOLD:
-                    significant_jump_idx = i
-                    significant_jump_ratio = ratio
-                    logger.info(f"Found significant jump at distance {sorted_merge_distances[i]:.4f} -> {sorted_merge_distances[i+1]:.4f}, ratio: {ratio:.4f}")
-                    break
+                ratio = linkage_heights[i + 1] / denom
+                jump_ratios.append(float(ratio))
+                jump_ratio_indices.append(i)
+                logger.info(
+                    "Distance jump check: %.4f -> %.4f, ratio: %.4f",
+                    linkage_heights[i],
+                    linkage_heights[i + 1],
+                    ratio,
+                )
+
+            magma_metrics["jump_ratios"] = jump_ratios
+
+            significant_jump_idx = None
+            significant_jump_ratio = None
+            if jump_ratios:
+                best_pos = int(np.argmax(jump_ratios))
+                significant_jump_idx = int(jump_ratio_indices[best_pos])
+                significant_jump_ratio = float(jump_ratios[best_pos])
+                magma_metrics["max_jump_ratio"] = significant_jump_ratio
+                magma_metrics["k_star_merge_idx"] = significant_jump_idx
+                magma_metrics["k_star_merge_idx_1based"] = significant_jump_idx + 1
             
             # 根据是否找到显著跳跃点来决定聚类方案
-            if significant_jump_idx is not None:
+            if significant_jump_idx is not None and significant_jump_ratio is not None and significant_jump_ratio > jump_ratio_threshold:
                 # 找到了显著跳跃点，将阈值设置为跳跃点的距离
-                threshold_distance = sorted_merge_distances[significant_jump_idx]
-                logger.info(f"Using threshold distance: {threshold_distance:.4f} (before the significant jump)")
+                threshold_distance = float(linkage_heights[significant_jump_idx])
+                magma_metrics["threshold_distance"] = threshold_distance
+                logger.info(
+                    "Using threshold distance: %.4f (k*=%s, max_jump_ratio=%.4f > %.4f)",
+                    threshold_distance,
+                    significant_jump_idx + 1,
+                    significant_jump_ratio,
+                    jump_ratio_threshold,
+                )
                 
                 # 将所有距离小于阈值的合并归为同一类
                 # 使用距离阈值进行聚类
                 cluster_labels = fcluster(Z, t=threshold_distance, criterion='distance')
                 unique_labels, counts = np.unique(cluster_labels, return_counts=True)
                 logger.info(f"Hierarchical clustering results: labels={unique_labels}, counts={counts}")
+                magma_metrics["cluster_labels"] = cluster_labels.astype(int).tolist()
+                magma_metrics["num_clusters"] = int(len(unique_labels))
                 
                 # 改进的逻辑: 在阈值下形成的所有簇中，选择最大的簇作为良性客户端
                 # 这种方法更有效地处理类似图中显示的场景，其中良性客户端形成一个大簇
@@ -847,28 +882,51 @@ def fusion_dendro_defense(
                 # 现在选择最大的簇作为良性客户端组
                 majority_label = unique_labels[np.argmax(counts)]
                 logger.info(f"Largest cluster has label {majority_label} with {max(counts)} clients")
+                magma_metrics["largest_cluster_label"] = int(majority_label)
                 
                 # 提取最大簇中的客户端索引
                 benign_indices = np.where(cluster_labels == majority_label)[0]
                 benigns = [client_ids[i] for i in benign_indices]
                 logger.info(f"Selected largest cluster as benign: {len(benigns)} clients with label {majority_label}")
+                magma_metrics["kept_clients"] = list(benigns)
                 
                 # 记录被排除的客户端（可能是攻击者）
                 rejected_clients = [cid for idx, cid in enumerate(client_ids) if idx not in benign_indices]
                 if rejected_clients:
                     logger.info(f"Rejected {len(rejected_clients)} clients as potential attackers: {rejected_clients}")
+                magma_metrics["rejected_clients"] = rejected_clients
+                magma_metrics["decision"] = "largest_cluster_after_jump_cut"
                 
             else:
                 # 没有找到显著跳跃点，认为所有客户端都是良性的
-                logger.info(f"No significant jump found (all ratios <= {JUMP_RATIO_THRESHOLD}). Accepting all clients as benign.")
+                if significant_jump_ratio is None:
+                    logger.info(
+                        "No valid jump ratios (all denominators < 1e-9). Accepting all clients as benign."
+                    )
+                else:
+                    logger.info(
+                        "No significant jump found (max_jump_ratio=%.4f <= %.4f). Accepting all clients as benign.",
+                        significant_jump_ratio,
+                        jump_ratio_threshold,
+                    )
                 benigns = client_ids
+                magma_metrics["kept_clients"] = list(benigns)
+                magma_metrics["rejected_clients"] = []
+                magma_metrics["decision"] = "accept_all_no_significant_jump"
         except Exception as e:
             logger.error(f"Error during hierarchical clustering: {e}")
             logger.error(traceback.format_exc())
             logger.warning("Accepting all clients as a fallback.")
             benigns = client_ids
+            magma_metrics["kept_clients"] = list(benigns)
+            magma_metrics["rejected_clients"] = []
+            magma_metrics["decision"] = "accept_all_exception_fallback"
+            magma_metrics["error"] = str(e)
     else:
         logger.warning(f"Only {n_clients} clients, not enough for clustering. Accepting all.")
+        magma_metrics["kept_clients"] = list(benigns)
+        magma_metrics["rejected_clients"] = []
+        magma_metrics["decision"] = "accept_all_not_enough_clients"
     
     logger.info(f"Final selected benign clients: {benigns}")
 
@@ -919,4 +977,4 @@ def fusion_dendro_defense(
             fused_params[key] = global_model.state_dict()[key]
             logger.warning(f"Replaced NaN/Inf in parameter {key} with global model parameter.")
 
-    return fused_params, benigns
+    return fused_params, benigns, magma_metrics

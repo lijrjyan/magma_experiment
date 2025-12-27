@@ -58,6 +58,7 @@ def args_parser():
             "trimmed_mean",
             "cos_defense",
             "dendro_defense",
+            "magma",
             "dual_defense",
         ],
         type=str,
