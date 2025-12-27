@@ -119,6 +119,22 @@ Notes:
 
 ![Stage4 CIFAR10 FedAvg local_epochs=5](docs/figures/stage4_cifar10_fedavg_e5_20251226-214009_curve.png)
 
+## Stage4 results (MNIST, IID, seed=7890, rounds=50, local_epochs=5)
+
+| run_id | aggregator | attack | final_test_acc | best_test_acc | min_test_acc_after_attack |
+| --- | --- | --- | ---: | ---: | ---: |
+| `stage4_mnist_fedavg_e5_r50_20251227-004124` | `fedavg` | `none` | 98.71 | 98.73 |  |
+
+![Stage4 MNIST FedAvg rounds=50 local_epochs=5](docs/figures/stage4_mnist_fedavg_e5_r50_20251227-004124_curve.png)
+
+## Stage4 results (FMNIST, IID, seed=7890, rounds=50, local_epochs=5)
+
+| run_id | aggregator | attack | final_test_acc | best_test_acc | min_test_acc_after_attack |
+| --- | --- | --- | ---: | ---: | ---: |
+| `stage4_fmnist_fedavg_e5_r50_20251227-004135` | `fedavg` | `none` | 87.04 | 87.16 |  |
+
+![Stage4 FMNIST FedAvg rounds=50 local_epochs=5](docs/figures/stage4_fmnist_fedavg_e5_r50_20251227-004135_curve.png)
+
 ## Plot regeneration
 
 From `magma_experiment/`:
@@ -137,4 +153,7 @@ python scripts/plot_run_curve.py --run-id stage4_tinyimagenet_fedavg_50r --out d
 python scripts/plot_run_curve.py --run-id stage4_mnist_fedavg_e5_20251226-213946 --out docs/figures/stage4_mnist_fedavg_e5_20251226-213946_curve.png
 python scripts/plot_run_curve.py --run-id stage4_fmnist_fedavg_e5_20251226-214002 --out docs/figures/stage4_fmnist_fedavg_e5_20251226-214002_curve.png
 python scripts/plot_run_curve.py --run-id stage4_cifar10_fedavg_e5_20251226-214009 --out docs/figures/stage4_cifar10_fedavg_e5_20251226-214009_curve.png
+
+python scripts/plot_run_curve.py --run-id stage4_mnist_fedavg_e5_r50_20251227-004124 --out docs/figures/stage4_mnist_fedavg_e5_r50_20251227-004124_curve.png
+python scripts/plot_run_curve.py --run-id stage4_fmnist_fedavg_e5_r50_20251227-004135 --out docs/figures/stage4_fmnist_fedavg_e5_r50_20251227-004135_curve.png
 ```
